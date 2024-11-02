@@ -1,15 +1,12 @@
-import sys
-import os
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../src/Task')))
+# database_setup.py
 
 import sqlite3
 
 def initialize_database():
-    # Create a connection to the database file (or create it if it doesn't exist)
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
 
-    # Create the tasks table with essential fields
+    # Erstellen der tasks-Tabelle (falls nicht existiert)
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS tasks (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -24,11 +21,18 @@ def initialize_database():
         )
     ''')
 
-    # Commit the changes and close the connection
+    # Erstellen der users-Tabelle (falls nicht existiert)
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL UNIQUE,
+            password_hash TEXT NOT NULL
+        )
+    ''')
+
     conn.commit()
     conn.close()
-    print("Database and tasks table initialized successfully.")
+    print("Database and tables initialized successfully.")
 
-# Run the database initialization
 if __name__ == "__main__":
     initialize_database()
