@@ -15,8 +15,9 @@ class Task:
     Represents a task that a user can create, edit, and categorize.
     """
 
-    def __init__(self, title: str, due_date: date, importance: Priority, urgency: Priority, fitness: Priority,
-                 description: str = ""):
+    def __init__(self, title, due_date, importance, urgency, fitness, description="", status=Status.OPEN,
+                 completed_date=None, task_id=None):
+        self.id = task_id  # Optional task ID for database integration
         """
         Initializes a new Task instance with essential attributes.
 
