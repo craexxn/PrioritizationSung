@@ -1,8 +1,9 @@
-from datetime import date, timedelta
 import sys
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../src/Task')))
+
 from task import Task, Priority, Status
+from datetime import date, timedelta
 
 
 def test_task_creation():
