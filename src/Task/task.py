@@ -2,64 +2,74 @@ from enum import Enum
 from datetime import date
 
 class Priority(Enum):
-    HIGH = "High"
-    LOW = "Low"
+    """
+    Enum representing priority levels.
+    """
+    LOW = 'Low'
+    HIGH = 'High'
 
 class Status(Enum):
-    OPEN = "Open"
-    IN_PROGRESS = "InProgress"
-    COMPLETED = "Completed"
+    """
+    Enum representing task statuses.
+    """
+    OPEN = 'Open'
+    IN_PROGRESS = 'In Progress'
+    COMPLETED = 'Completed'
 
 class Task:
     """
-    Represents a task that a user can create, edit, and categorize.
+    Represents a task with attributes such as title, due date, priority levels,
+    description, status, and completion date.
     """
 
-    def __init__(self, title, due_date, importance, urgency, fitness, description="", status=Status.OPEN,
-                 completed_date=None, task_id=None):
-        self.id = task_id  # Optional task ID for database integration
+    def __init__(self, title, due_date, importance, urgency, fitness, description="",
+                 status=Status.OPEN, completed_date=None, task_id=None):
         """
-        Initializes a new Task instance with essential attributes.
+        Initializes a new Task instance.
 
-        :param title: Title of the task
-        :param due_date: Due date of the task
-        :param importance: Priority level based on importance (HIGH/LOW)
-        :param urgency: Priority level based on urgency (HIGH/LOW)
-        :param fitness: User's fitness or capability assessment to complete the task (HIGH/LOW)
-        :param description: Optional detailed description of the task
+        :param title: Title of the task.
+        :param due_date: Due date of the task.
+        :param importance: Importance level (Priority.HIGH or Priority.LOW).
+        :param urgency: Urgency level (Priority.HIGH or Priority.LOW).
+        :param fitness: Fitness level (Priority.HIGH or Priority.LOW).
+        :param description: Optional description of the task.
+        :param status: Current status of the task (default is Status.OPEN).
+        :param completed_date: Date when the task was completed (default is None).
+        :param task_id: Unique identifier for the task (default is None).
         """
+        self.id = task_id
         self.title = title
         self.due_date = due_date
         self.importance = importance
         self.urgency = urgency
         self.fitness = fitness
         self.description = description
-        self.status = Status.OPEN
-        self.completed_date = None
+        self.status = status
+        self.completed_date = completed_date
 
-    def edit_task(self, title: str = None, due_date: date = None, importance: Priority = None,
-                  urgency: Priority = None, fitness: Priority = None, description: str = None):
+    def edit_task(self, title=None, due_date=None, importance=None,
+                  urgency=None, fitness=None, description=None):
         """
-        Edits the task with new values if provided.
+        Edits the task's attributes with new values if provided.
 
-        :param title: New title of the task
-        :param due_date: New due date of the task
-        :param importance: New priority level based on importance
-        :param urgency: New priority level based on urgency
-        :param fitness: New capability assessment for completing the task
-        :param description: New detailed description of the task
+        :param title: New title of the task.
+        :param due_date: New due date of the task.
+        :param importance: New importance level.
+        :param urgency: New urgency level.
+        :param fitness: New fitness level.
+        :param description: New description of the task.
         """
-        if title:
+        if title is not None:
             self.title = title
-        if due_date:
+        if due_date is not None:
             self.due_date = due_date
-        if importance:
+        if importance is not None:
             self.importance = importance
-        if urgency:
+        if urgency is not None:
             self.urgency = urgency
-        if fitness:
+        if fitness is not None:
             self.fitness = fitness
-        if description:
+        if description is not None:
             self.description = description
 
     def mark_as_completed(self):

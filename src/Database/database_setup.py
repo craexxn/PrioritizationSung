@@ -1,12 +1,13 @@
-# database_setup.py
-
 import sqlite3
 
 def initialize_database():
+    """
+    Initializes the SQLite database and creates necessary tables if they do not exist.
+    """
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
 
-    # Erstellen der tasks-Tabelle (falls nicht existiert)
+    # Create the tasks table if it does not exist
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS tasks (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -21,7 +22,7 @@ def initialize_database():
         )
     ''')
 
-    # Erstellen der users-Tabelle (falls nicht existiert)
+    # Create the users table if it does not exist
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -30,6 +31,22 @@ def initialize_database():
         )
     ''')
 
+    # Create the archived_tasks table if it does not exist
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS archived_tasks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            description TEXT,
+            due_date TEXT,
+            importance TEXT,
+            urgency TEXT,
+            fitness TEXT,
+            status TEXT,
+            completed_date TEXT
+        )
+    ''')
+
+    # Commit changes and close the connection
     conn.commit()
     conn.close()
     print("Database and tables initialized successfully.")
