@@ -130,3 +130,17 @@ class SettingsManager:
             current_settings["default_priorities"]
         )
 
+    def update_notification_interval(self, interval):
+        """
+        Updates the notification interval setting.
+
+        :param interval: Integer interval in days for notifications.
+        """
+        current_settings = self.get_settings()
+        self.save_settings(
+            notification_interval=interval,
+            auto_archive=current_settings["auto_archive"],
+            auto_delete=current_settings["auto_delete"],
+            notifications_enabled=current_settings["notifications_enabled"],
+            default_priorities=current_settings["default_priorities"]
+        )
