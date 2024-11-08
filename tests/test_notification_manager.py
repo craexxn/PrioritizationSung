@@ -4,6 +4,7 @@ import pytest
 import sqlite3
 from datetime import date, timedelta
 
+# Import paths for other modules
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../src/Task')))
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../src/SettingsManager')))
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../src/NotificationManager')))

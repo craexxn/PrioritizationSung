@@ -3,6 +3,7 @@ import os
 import sqlite3
 import pytest
 
+# Import paths for other modules
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../src/User')))
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../src/User/UserRepository')))
 
