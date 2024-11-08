@@ -6,9 +6,7 @@ from datetime import datetime
 
 # Import paths for other modules
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../Task')))
-
 from task import Task, Priority
-
 
 class TaskEditor(tk.Toplevel):
     """
@@ -21,7 +19,7 @@ class TaskEditor(tk.Toplevel):
         self.task = task
         self.index = index
         self.title(title)
-        self.geometry("400x400")
+        self.geometry("400x600")
 
         # Fields for task details
         tk.Label(self, text="Title:").pack(pady=5)
@@ -77,11 +75,18 @@ class TaskEditor(tk.Toplevel):
             messagebox.showerror("Invalid Date", "Please enter a valid date in the format YYYY-MM-DD.")
             return
 
+        # Check if due date is in the past
+        if due_date < datetime.today().date():
+            messagebox.showerror("Invalid Due Date", "The due date cannot be in the past. Please select a future date.")
+            return
+
+        # Convert dropdown values to uppercase to match the Priority Enum
         importance = Priority[self.importance_var.get().upper()]
         urgency = Priority[self.urgency_var.get().upper()]
         fitness = Priority[self.fitness_var.get().upper()]
 
         if self.task:
+            # Update the existing task
             self.task.title = title
             self.task.description = description
             self.task.due_date = due_date
@@ -90,9 +95,16 @@ class TaskEditor(tk.Toplevel):
             self.task.fitness = fitness
             self.controller.tasks[self.index] = self.task
         else:
-            new_task = Task(title=title, description=description, due_date=due_date, importance=importance,
-                            urgency=urgency, fitness=fitness)
+            # Create a new task
+            new_task = Task(
+                title=title,
+                description=description,
+                due_date=due_date,
+                importance=importance,
+                urgency=urgency,
+                fitness=fitness
+            )
             self.controller.tasks.append(new_task)
 
-        self.controller.update_task_listbox()
+        self.controller.update_task_venn_diagram()  # Update Venn diagram on save
         self.destroy()
