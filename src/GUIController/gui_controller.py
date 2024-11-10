@@ -37,14 +37,16 @@ class GUIController:
         self.archive_manager = ArchiveManager(db_path=self.db_path)
         self.notification_manager = NotificationManager(self.settings_manager)
 
+        # Track the currently selected task for editing
+        self.selected_task = None  # New attribute to keep track of the selected task
+
         # Create GUI elements
         self.create_widgets()
 
         # Initialize task list
         self.tasks = []
         self.load_tasks()
-        # Initialize the GUIController class with mock priority combinations
-        self.initialize_priority_combinations()  # Add priority combinations for visualization
+        self.initialize_priority_combinations()  # For testing
 
         # Schedule notifications
         self.schedule_notifications()
@@ -57,7 +59,16 @@ class GUIController:
         # Draw Venn diagram areas with overlapping regions
         self.draw_venn_diagram()
 
-        # Buttons for task actions
+        # Create "LOW Priority Tasks" listbox on the right side
+        self.low_listbox_label = tk.Label(self.root, text="LOW Priority Tasks", font=("Helvetica", 12, "bold"))
+        self.low_listbox_label.place(x=850, y=50)
+        self.low_listbox = tk.Listbox(self.root, selectmode=tk.SINGLE, width=25, height=20)
+        self.low_listbox.place(x=850, y=80)
+
+        # Bind selection event for low_listbox to update selected task index
+        self.low_listbox.bind("<<ListboxSelect>>", self.low_listbox_select)
+
+       # Buttons for task actions
         btn_frame = tk.Frame(self.root)
         btn_frame.pack(pady=5)
 
@@ -189,77 +200,113 @@ class GUIController:
         """
         self.venn_canvas.delete("task_text")
 
-        # Define the center of the Venn Diagram
         venn_center_x, venn_center_y = 512, 512
         medium_radius = 275
-        outer_radius_offset = 1  # For tasks with one HIGH
-        overlap_radius_offset = 1 # For tasks with two HIGHs
-        high_high_high_radius = 75  # Radius for the central "Do Now" region
+        outer_radius_offset = 1
+        overlap_radius_offset = 1
+        high_high_high_radius = 75
 
-        # Centers for each priority circle
         importance_center = (venn_center_x - medium_radius, venn_center_y + medium_radius)
         urgency_center = (venn_center_x, venn_center_y - medium_radius)
-        fitness_center = (venn_center_x + medium_radius, venn_center_y  + medium_radius)
+        fitness_center = (venn_center_x + medium_radius, venn_center_y + medium_radius)
 
-        # Counter for arranging multiple tasks in the center region
         high_high_high_counter = 0
         high_high_high_angle_step = 45
 
         for task in self.tasks:
             if task.importance == Priority.HIGH and task.urgency == Priority.HIGH and task.fitness == Priority.HIGH:
-                # Position around the "Do Now" label in a circular layout
                 angle_rad = math.radians(high_high_high_angle_step * high_high_high_counter)
                 x = venn_center_x + high_high_high_radius * math.cos(angle_rad)
                 y = venn_center_y + 100 + high_high_high_radius * math.sin(angle_rad)
                 high_high_high_counter += 1
             elif task.importance == Priority.HIGH and task.urgency == Priority.HIGH:
-                # Position in the overlap region between Importance and Urgency
                 x = int((importance_center[0] + urgency_center[0]) / 2 * overlap_radius_offset)
                 y = int((importance_center[1] + urgency_center[1]) / 2.1 * overlap_radius_offset)
             elif task.importance == Priority.HIGH and task.fitness == Priority.HIGH:
-                # Position in the overlap region between Importance and Fitness
                 x = int((importance_center[0] + fitness_center[0]) / 2 * overlap_radius_offset)
                 y = int((importance_center[1] + fitness_center[1]) / 2.1 * overlap_radius_offset)
             elif task.urgency == Priority.HIGH and task.fitness == Priority.HIGH:
-                # Position in the overlap region between Urgency and Fitness
                 x = int((urgency_center[0] + fitness_center[0]) / 2 * overlap_radius_offset)
                 y = int((urgency_center[1] + fitness_center[1]) / 2.1 * overlap_radius_offset)
             elif task.importance == Priority.HIGH:
-                # Position at the edge of the Importance circle
                 x = int(importance_center[0] * outer_radius_offset)
                 y = int(importance_center[1] * outer_radius_offset / 2)
             elif task.urgency == Priority.HIGH:
-                # Position at the edge of the Urgency circle
                 x = int(urgency_center[0] * outer_radius_offset)
                 y = int(urgency_center[1] * outer_radius_offset * 3.7)
             elif task.fitness == Priority.HIGH:
-                # Position at the edge of the Fitness circle
                 x = int(fitness_center[0] * outer_radius_offset)
                 y = int(fitness_center[1] * outer_radius_offset / 2)
             else:
-                # For tasks with all LOWs, place them in the "LOW Priority Tasks" list
                 self.low_listbox.insert(tk.END, task.title)
                 continue
 
-            # Display the task title at the calculated position
-            self.venn_canvas.create_text(x, y, text=task.title, tags="task_text")
+            # Create the task text label with a unique tag based on task title
+            text_id = self.venn_canvas.create_text(x, y, text=task.title, tags=("task_text", task.title))
+            # Bind a click event to the task label
+            self.venn_canvas.tag_bind(text_id, "<Button-1>", lambda event, task=task, text_id=text_id: self.select_task(event, task, text_id))
+
+    def select_task(self, event, task, text_id):
+        """
+        Marks the task as selected and highlights it.
+        """
+        # Deselect the previously selected task, if any
+        if self.selected_task is not None:
+            self.venn_canvas.itemconfig(self.selected_task["text_id"], fill="black")
+
+        # Set the new selected task and change its color to indicate selection
+        self.selected_task = {"task": task, "text_id": text_id}
+        self.venn_canvas.itemconfig(text_id, fill="red")  # Highlight selected task in red
+
+    def edit_task_from_canvas(self, task):
+        """
+        Opens the TaskEditor for the specified task when clicked on the Venn diagram.
+        """
+        TaskEditor(self, "Edit Task", task=task)
+
+    def task_listbox_select(self, event):
+        selected_index = self.task_listbox.curselection()
+        if selected_index:
+            self.selected_task_index = selected_index[0]
+            # Clear selection in the LOW listbox
+            self.low_listbox.selection_clear(0, tk.END)
+        else:
+            self.selected_task_index = None
 
     def update_task_listbox(self):
         """
         Refreshes the Venn diagram with the current list of tasks.
         """
         self.update_task_venn_diagram()
+        self.low_listbox.delete(0, tk.END)
+        for task in self.tasks:
+            if task.importance == Priority.LOW and task.urgency == Priority.LOW and task.fitness == Priority.LOW:
+                self.low_listbox.insert(tk.END, task.title)
+
+    def low_listbox_select(self, event):
+        selected_index = self.low_listbox.curselection()
+        if not selected_index:
+            return
+
+        selected_title = self.low_listbox.get(selected_index)
+        selected_task = next((task for task in self.tasks if task.title == selected_title), None)
+
+        if selected_task:
+            self.selected_task_index = self.tasks.index(selected_task)
+            # Clear selection in the Venn diagram
+            self.task_listbox.selection_clear(0, tk.END)
+        else:
+            self.selected_task_index = None
 
     def add_task(self):
         TaskEditor(self, "Add New Task")
 
     def edit_task(self):
-        selected_index = self.task_listbox.curselection()
-        if not selected_index:
+        if hasattr(self, "selected_task_index") and self.selected_task_index is not None:
+            selected_task = self.tasks[self.selected_task_index]
+            TaskEditor(self, "Edit Task", task=selected_task, index=self.selected_task_index)
+        else:
             messagebox.showwarning("No Selection", "Please select a task to edit.")
-            return
-        selected_task = self.tasks[selected_index[0]]
-        TaskEditor(self, "Edit Task", task=selected_task, index=selected_index[0])
 
     def delete_task(self):
         selected_index = self.task_listbox.curselection()

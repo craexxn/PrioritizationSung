@@ -80,22 +80,23 @@ class TaskEditor(tk.Toplevel):
             messagebox.showerror("Invalid Due Date", "The due date cannot be in the past. Please select a future date.")
             return
 
-        # Convert dropdown values to uppercase to match the Priority Enum
+        # Convert dropdown values to match the Priority Enum
         importance = Priority[self.importance_var.get().upper()]
         urgency = Priority[self.urgency_var.get().upper()]
         fitness = Priority[self.fitness_var.get().upper()]
 
+        # Update existing task if editing
         if self.task:
-            # Update the existing task
             self.task.title = title
             self.task.description = description
             self.task.due_date = due_date
             self.task.importance = importance
             self.task.urgency = urgency
             self.task.fitness = fitness
-            self.controller.tasks[self.index] = self.task
+
+            if self.index is not None:
+                self.controller.tasks[self.index] = self.task
         else:
-            # Create a new task
             new_task = Task(
                 title=title,
                 description=description,
@@ -106,5 +107,5 @@ class TaskEditor(tk.Toplevel):
             )
             self.controller.tasks.append(new_task)
 
-        self.controller.update_task_venn_diagram()  # Update Venn diagram on save
+        self.controller.update_task_listbox()
         self.destroy()
