@@ -192,63 +192,84 @@ class GUIController:
 
     def update_task_venn_diagram(self):
         """
-        Updates the Venn diagram display with the current tasks.
-        Tasks are positioned based on priority levels:
-        - Only one HIGH: positioned at the edge of the relevant priority circle.
-        - Two HIGHs: positioned at the edge of the overlap region of the two relevant circles.
-        - Three HIGHs: positioned in the center around "Do Now".
+        Updates the Venn diagram display with the current tasks, adding slight offsets for overlapping tasks.
+        Tasks with the same position are arranged in a circular pattern to avoid overlap.
         """
         self.venn_canvas.delete("task_text")
 
         venn_center_x, venn_center_y = 512, 512
         medium_radius = 275
-        outer_radius_offset = 1
-        overlap_radius_offset = 1
-        high_high_high_radius = 75
+        offset_radius = 15  # Radius for offset circle around each position for overlapping tasks
+        high_high_high_radius = 75  # Radius for the central "Do Now" region
 
-        importance_center = (venn_center_x - medium_radius, venn_center_y + medium_radius)
-        urgency_center = (venn_center_x, venn_center_y - medium_radius)
-        fitness_center = (venn_center_x + medium_radius, venn_center_y + medium_radius)
+        # Centers for each priority circle
+        importance_center = (venn_center_x - medium_radius, venn_center_y)
+        urgency_center = (venn_center_x, venn_center_y + medium_radius)
+        fitness_center = (venn_center_x + medium_radius, venn_center_y)
 
-        high_high_high_counter = 0
-        high_high_high_angle_step = 45
+        # Dictionary to track tasks at each position
+        position_count = {}
 
         for task in self.tasks:
+            # Determine position based on priorities
             if task.importance == Priority.HIGH and task.urgency == Priority.HIGH and task.fitness == Priority.HIGH:
-                angle_rad = math.radians(high_high_high_angle_step * high_high_high_counter)
-                x = venn_center_x + high_high_high_radius * math.cos(angle_rad)
-                y = venn_center_y + 100 + high_high_high_radius * math.sin(angle_rad)
-                high_high_high_counter += 1
-            elif task.importance == Priority.HIGH and task.urgency == Priority.HIGH:
-                x = int((importance_center[0] + urgency_center[0]) / 2 * overlap_radius_offset)
-                y = int((importance_center[1] + urgency_center[1]) / 2.1 * overlap_radius_offset)
-            elif task.importance == Priority.HIGH and task.fitness == Priority.HIGH:
-                x = int((importance_center[0] + fitness_center[0]) / 2 * overlap_radius_offset)
-                y = int((importance_center[1] + fitness_center[1]) / 2.1 * overlap_radius_offset)
-            elif task.urgency == Priority.HIGH and task.fitness == Priority.HIGH:
-                x = int((urgency_center[0] + fitness_center[0]) / 2 * overlap_radius_offset)
-                y = int((urgency_center[1] + fitness_center[1]) / 2.1 * overlap_radius_offset)
-            elif task.importance == Priority.HIGH:
-                x = int(importance_center[0] * outer_radius_offset)
-                y = int(importance_center[1] * outer_radius_offset / 2)
-            elif task.urgency == Priority.HIGH:
-                x = int(urgency_center[0] * outer_radius_offset)
-                y = int(urgency_center[1] * outer_radius_offset * 3.7)
-            elif task.fitness == Priority.HIGH:
-                x = int(fitness_center[0] * outer_radius_offset)
-                y = int(fitness_center[1] * outer_radius_offset / 2)
+                # Place tasks with HHH priority in a circular pattern around "Do Now"
+                if "HHH" not in position_count:
+                    position_count["HHH"] = []
+                position_count["HHH"].append(task)
             else:
-                self.low_listbox.insert(tk.END, task.title)
-                continue
+                # Calculate position for other combinations of priorities
+                if task.importance == Priority.HIGH and task.urgency == Priority.HIGH:
+                    position = (
+                    (importance_center[0] + urgency_center[0]) / 2, (importance_center[1] + urgency_center[1]) / 2)
+                elif task.importance == Priority.HIGH and task.fitness == Priority.HIGH:
+                    position = (
+                    (importance_center[0] + fitness_center[0]) / 2, (importance_center[1] + fitness_center[1]) / 2)
+                elif task.urgency == Priority.HIGH and task.fitness == Priority.HIGH:
+                    position = (
+                    (urgency_center[0] + fitness_center[0]) / 2, (urgency_center[1] + fitness_center[1]) / 2)
+                elif task.importance == Priority.HIGH:
+                    position = importance_center
+                elif task.urgency == Priority.HIGH:
+                    position = urgency_center
+                elif task.fitness == Priority.HIGH:
+                    position = fitness_center
+                else:
+                    # For tasks with all LOWs, add to the "LOW Priority Tasks" list
+                    self.low_listbox.insert(tk.END, task.title)
+                    continue
 
-            # Create the task text label with a unique tag based on task title
-            text_id = self.venn_canvas.create_text(x, y, text=task.title, tags=("task_text", task.title))
-            # Bind a click event to the task label
-            self.venn_canvas.tag_bind(text_id, "<Button-1>", lambda event, task=task, text_id=text_id: self.select_task(event, task, text_id))
+                # Track tasks at this calculated position
+                if position not in position_count:
+                    position_count[position] = []
+                position_count[position].append(task)
+
+        # Display tasks at each position, applying offsets for overlapping tasks
+        for position, tasks in position_count.items():
+            if position == "HHH":
+                # Arrange HHH tasks in a circular pattern around "Do Now"
+                angle_step = 360 / len(tasks)
+                for i, task in enumerate(tasks):
+                    angle_rad = math.radians(i * angle_step)
+                    x = venn_center_x + high_high_high_radius * math.cos(angle_rad)
+                    y = venn_center_y + 100 + high_high_high_radius * math.sin(angle_rad)  # 100 is offset for "Do Now"
+                    text_id = self.venn_canvas.create_text(x, y, text=task.title, tags="task_text")
+                    self.venn_canvas.tag_bind(text_id, "<Button-1>",
+                                              lambda e, t=task, tid=text_id: self.select_task(e, t, tid))
+            else:
+                # Arrange tasks with same position in a small circular pattern around the position
+                angle_step = 360 / len(tasks)
+                for i, task in enumerate(tasks):
+                    angle_rad = math.radians(i * angle_step)
+                    x_offset = position[0] + offset_radius * math.cos(angle_rad)
+                    y_offset = position[1] + offset_radius * math.sin(angle_rad)
+                    text_id = self.venn_canvas.create_text(x_offset, y_offset, text=task.title, tags="task_text")
+                    self.venn_canvas.tag_bind(text_id, "<Button-1>",
+                                              lambda e, t=task, tid=text_id: self.select_task(e, t, tid))
 
     def select_task(self, event, task, text_id):
         """
-        Marks the task as selected and highlights it.
+        Marks the task as selected and highlights it for editing.
         """
         # Deselect the previously selected task, if any
         if self.selected_task is not None:
@@ -257,6 +278,9 @@ class GUIController:
         # Set the new selected task and change its color to indicate selection
         self.selected_task = {"task": task, "text_id": text_id}
         self.venn_canvas.itemconfig(text_id, fill="red")  # Highlight selected task in red
+
+        # Find and store the index of the selected task
+        self.selected_task_index = self.tasks.index(task)
 
     def edit_task_from_canvas(self, task):
         """
@@ -302,11 +326,11 @@ class GUIController:
         TaskEditor(self, "Add New Task")
 
     def edit_task(self):
-        if hasattr(self, "selected_task_index") and self.selected_task_index is not None:
-            selected_task = self.tasks[self.selected_task_index]
-            TaskEditor(self, "Edit Task", task=selected_task, index=self.selected_task_index)
-        else:
+        if self.selected_task_index is None:
             messagebox.showwarning("No Selection", "Please select a task to edit.")
+            return
+        selected_task = self.tasks[self.selected_task_index]
+        TaskEditor(self, "Edit Task", task=selected_task, index=self.selected_task_index)
 
     def delete_task(self):
         selected_index = self.task_listbox.curselection()
