@@ -18,6 +18,7 @@ from notification_manager import NotificationManager
 from settings_manager import SettingsManager
 from task_editor import TaskEditor
 from settings_window import SettingsWindow
+from archive_viewer import ArchiveViewer
 
 
 class GUIController:
