@@ -52,9 +52,9 @@ class GUIController:
         self.schedule_notifications()
 
     def create_widgets(self):
-        # Main canvas for the Venn Diagram
+        # # Main canvas for the Venn Diagram
         self.venn_canvas = Canvas(self.root, width=1024, height=1024)
-        self.venn_canvas.pack(pady=10)
+        self.venn_canvas.pack(pady=(50, 10))  # Add space above canvas for button frame
 
         # Draw Venn diagram areas with overlapping regions
         self.draw_venn_diagram()
@@ -68,16 +68,19 @@ class GUIController:
         # Bind selection event for low_listbox to update selected task index
         self.low_listbox.bind("<<ListboxSelect>>", self.low_listbox_select)
 
-       # Buttons for task actions
+        # Buttons for task actions at the top of the window
         btn_frame = tk.Frame(self.root)
-        btn_frame.pack(pady=5)
+        btn_frame.pack(side="top", pady=5)  # Position the button frame at the top
 
+        # Create buttons for task actions
         tk.Button(btn_frame, text="Add Task", command=self.add_task).grid(row=0, column=0, padx=5)
         tk.Button(btn_frame, text="Edit Task", command=self.edit_task).grid(row=0, column=1, padx=5)
         tk.Button(btn_frame, text="Delete Task", command=self.delete_task).grid(row=0, column=2, padx=5)
-        tk.Button(btn_frame, text="Archive Task", command=self.archive_selected_task).grid(row=0, column=3, padx=5)
-        tk.Button(btn_frame, text="Show Archive", command=self.show_archive).grid(row=0, column=4, padx=5)
-        tk.Button(btn_frame, text="Settings", command=self.show_settings).grid(row=0, column=5, padx=5)
+        tk.Button(btn_frame, text="Mark as Completed", command=self.mark_task_completed).grid(row=0, column=3, padx=5)
+        tk.Button(btn_frame, text="Archive Task", command=self.archive_selected_task).grid(row=0, column=4, padx=5)
+        tk.Button(btn_frame, text="Show Archive", command=self.show_archive).grid(row=0, column=5, padx=5)
+        tk.Button(btn_frame, text="Settings", command=self.show_settings).grid(row=0, column=6, padx=5)
+
 
     def draw_venn_diagram(self):
         """
@@ -333,26 +336,82 @@ class GUIController:
         TaskEditor(self, "Edit Task", task=selected_task, index=self.selected_task_index)
 
     def delete_task(self):
-        selected_index = self.task_listbox.curselection()
-        if not selected_index:
+        """
+        Deletes the selected task from the list and updates the diagram and listbox accordingly.
+        """
+        # If a task is selected in the Venn diagram
+        if self.selected_task:
+            task_to_delete = self.selected_task["task"]
+            self.tasks.remove(task_to_delete)
+            self.venn_canvas.delete(self.selected_task["text_id"])  # Remove the element from the diagram
+            self.selected_task = None  # Reset the selected task
+
+        # If a task is selected in the "LOW" listbox
+        elif self.low_listbox.curselection():
+            selected_index = self.low_listbox.curselection()[0]
+            selected_task_title = self.low_listbox.get(selected_index)
+            task_to_delete = next((task for task in self.tasks if task.title == selected_task_title), None)
+            if task_to_delete:
+                self.tasks.remove(task_to_delete)
+                self.low_listbox.delete(selected_index)  # Remove the element from the "LOW" listbox
+
+        else:
             messagebox.showwarning("No Selection", "Please select a task to delete.")
             return
-        del self.tasks[selected_index[0]]
+
+        self.update_task_listbox()  # Refresh the diagram and list
+
+    def mark_task_completed(self):
+        """
+        Marks the selected task as completed.
+        """
+        if self.selected_task_index is None:
+            messagebox.showwarning("No Selection", "Please select a task to mark as completed.")
+            return
+        selected_task = self.tasks[self.selected_task_index]
+        selected_task.status = Status.COMPLETED
+        messagebox.showinfo("Task Completed", f"Task '{selected_task.title}' has been marked as completed.")
         self.update_task_listbox()
 
     def archive_selected_task(self):
-        selected_index = self.task_listbox.curselection()
-        if not selected_index:
+        """
+        Archives the selected task and updates the diagram and listbox accordingly.
+        """
+        # Check if a task is selected in the Venn diagram
+        if self.selected_task:
+            task_to_archive = self.selected_task["task"]
+            try:
+                # Archive the task
+                self.archive_manager.archive_task(task_to_archive)
+                # Remove the task from the main task list and Venn diagram
+                self.tasks.remove(task_to_archive)
+                self.venn_canvas.delete(self.selected_task["text_id"])  # Remove from diagram
+                self.selected_task = None  # Clear selection
+                messagebox.showinfo("Success", f"Task '{task_to_archive.title}' has been archived.")
+            except ValueError as e:
+                messagebox.showerror("Error", str(e))
+
+        # Check if a task is selected in the "LOW Priority Tasks" listbox
+        elif self.low_listbox.curselection():
+            selected_index = self.low_listbox.curselection()[0]
+            selected_task_title = self.low_listbox.get(selected_index)
+            task_to_archive = next((task for task in self.tasks if task.title == selected_task_title), None)
+            if task_to_archive:
+                try:
+                    # Archive the task
+                    self.archive_manager.archive_task(task_to_archive)
+                    # Remove the task from the main task list and listbox
+                    self.tasks.remove(task_to_archive)
+                    self.low_listbox.delete(selected_index)  # Remove from "LOW" listbox
+                    messagebox.showinfo("Success", f"Task '{task_to_archive.title}' has been archived.")
+                except ValueError as e:
+                    messagebox.showerror("Error", str(e))
+        else:
             messagebox.showwarning("No Selection", "Please select a task to archive.")
             return
-        task_to_archive = self.tasks[selected_index[0]]
-        try:
-            self.archive_manager.archive_task(task_to_archive)
-            del self.tasks[selected_index[0]]
-            self.update_task_listbox()
-            messagebox.showinfo("Success", f"Task '{task_to_archive.title}' has been archived.")
-        except ValueError as e:
-            messagebox.showerror("Error", str(e))
+
+        # Refresh the task display
+        self.update_task_listbox()
 
     def show_archive(self):
         ArchiveViewer(self)
