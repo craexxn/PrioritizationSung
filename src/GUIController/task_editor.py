@@ -85,7 +85,7 @@ class TaskEditor(tk.Toplevel):
         urgency = Priority[self.urgency_var.get().upper()]
         fitness = Priority[self.fitness_var.get().upper()]
 
-        # Update existing task if editing
+        # Update existing task if editing or reactivating
         if self.task:
             self.task.title = title
             self.task.description = description
@@ -93,19 +93,28 @@ class TaskEditor(tk.Toplevel):
             self.task.importance = importance
             self.task.urgency = urgency
             self.task.fitness = fitness
+            self.task.status = Status.ACTIVE  # Set to active upon reactivation
+
+            # If it's a reactivated task, add it back to the main task list
+            if self.task not in self.controller.tasks:
+                self.controller.tasks.append(self.task)
 
             if self.index is not None:
                 self.controller.tasks[self.index] = self.task
         else:
+            # Create a new task
             new_task = Task(
                 title=title,
                 description=description,
                 due_date=due_date,
                 importance=importance,
                 urgency=urgency,
-                fitness=fitness
+                fitness=fitness,
+                status=Status.ACTIVE
             )
             self.controller.tasks.append(new_task)
 
+        # Refresh task display
         self.controller.update_task_listbox()
         self.destroy()
+
