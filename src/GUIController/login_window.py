@@ -26,6 +26,9 @@ class LoginWindow(tk.Toplevel):
         self.transient(controller.root)  # Make this window modal relative to the main window
         self.grab_set()  # Lock the focus to this window until it is closed
 
+        # Set the close event for the login window
+        self.protocol("WM_DELETE_WINDOW", self.on_close)
+
         # Widgets for login
         tk.Label(self, text="Username:").pack(pady=5)
         self.username_entry = tk.Entry(self, width=30)
@@ -55,13 +58,22 @@ class LoginWindow(tk.Toplevel):
     def register(self):
         username = self.username_entry.get()
         password = self.password_entry.get()
-        print(f"Attempting registration for user: {username}")  # Debug print
 
+        # Check if either field is empty
+        if not username or not password:
+            messagebox.showwarning("Warning", "Username and password cannot be empty.")
+            return
+
+        # Check if the username already exists
         if self.user_repo.get_user_by_username(username):
-            print("Registration failed: Username already exists")  # Debug print
             messagebox.showwarning("Warning", "Username already exists.")
         else:
             user = User(username, password)
             self.user_repo.save_user(user)
-            print("Registration successful!")  # Debug print
             messagebox.showinfo("Success", "User registered successfully.")
+
+    def on_close(self):
+        """
+        Triggered when the login window is closed. Exits the application if no user is logged in.
+        """
+        self.controller.root.quit()  # Close the entire application
