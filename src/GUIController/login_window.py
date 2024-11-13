@@ -41,16 +41,15 @@ class LoginWindow(tk.Toplevel):
     def login(self):
         username = self.username_entry.get()
         password = self.password_entry.get()
-        print(f"Attempting login for user: {username}")  # Debug print
         user = self.user_repo.get_user_by_username(username)
 
         if user and user.check_password(password):
             print("Login successful!")  # Debug print
             self.controller.current_user = username
+            self.controller.current_user_id = user.id  # Store the user_id in the controller
             self.controller.load_tasks()  # Load tasks for this user
             self.destroy()  # Close the login window
         else:
-            print("Login failed")  # Debug print
             messagebox.showerror("Error", "Invalid username or password.")
 
     def register(self):

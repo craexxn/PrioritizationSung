@@ -37,23 +37,17 @@ class UserRepository:
         conn.close()
 
     def get_user_by_username(self, username: str) -> User:
-        """
-        Retrieves a user from the database by username.
-
-        :param username: The username to search for.
-        :return: A User instance if found, otherwise None.
-        """
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
 
-        cursor.execute('SELECT * FROM users WHERE username = ?', (username,))
+        cursor.execute('SELECT id, username, password_hash FROM users WHERE username = ?', (username,))
         row = cursor.fetchone()
         conn.close()
 
         if row:
-            # Benutzer erstellen, ohne das Passwort erneut zu hashen
             user = User(username=row[1], password="")
-            user.password_hash = row[2]  # Direkt den Hash setzen
+            user.password_hash = row[2]
+            user.id = row[0]  # Assign the retrieved id to the user
             return user
         return None
 

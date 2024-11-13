@@ -70,6 +70,9 @@ class TaskEditor(tk.Toplevel):
         title = self.title_entry.get()
         description = self.description_text.get("1.0", tk.END).strip()
         due_date_str = self.due_date_entry.get()
+        user_id = self.controller.current_user_id  # Assuming you store current_user_id after login
+        # Check task attributes before saving
+        print(f"Saving task for user {user_id}: {title}, {description}, due date: {due_date}")
 
         try:
             due_date = datetime.strptime(due_date_str, "%Y-%m-%d").date()
@@ -100,14 +103,10 @@ class TaskEditor(tk.Toplevel):
         else:
             # Insert a new task with the user_id of the current user
             cursor.execute('''
-                INSERT INTO tasks (title, description, due_date, importance, urgency, fitness, user_id)
-                VALUES (?, ?, ?, ?, ?, ?, (
-                    SELECT id FROM users WHERE username = ?
-                ))
-            ''', (
-            title, description, due_date, importance.value, urgency.value, fitness.value, self.controller.current_user))
-
-        conn.commit()
+                    INSERT INTO tasks (title, description, due_date, importance, urgency, fitness, status, user_id)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (title, description, due_date, importance, urgency, fitness, status, user_id))
+            conn.commit()
         conn.close()
 
         self.controller.update_task_listbox()  # Refresh the task list

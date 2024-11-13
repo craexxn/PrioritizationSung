@@ -138,28 +138,15 @@ class GUIController:
         self.low_listbox.place(x=850, y=80)
 
     def load_tasks(self):
-        print("Loading tasks for user")  # Debug print
-        """
-                Loads tasks from the database that belong to the current user.
-                """
-        if not self.current_user:
-            return  # No user logged in
-
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         self.tasks.clear()
+        print(f"Loading tasks for user {self.current_user_id}")  # Debug print
 
-        # Load tasks only for the current user
-        cursor.execute('''
-                    SELECT title, description, due_date, importance, urgency, fitness, status 
-                    FROM tasks 
-                    WHERE user_id = (
-                        SELECT id FROM users WHERE username = ?
-                    )
-                ''', (self.current_user,))
-
+        cursor.execute(
+            'SELECT title, description, due_date, importance, urgency, fitness, status FROM tasks WHERE user_id = ?',
+            (self.current_user_id,))
         rows = cursor.fetchall()
-        conn.close()
 
         for row in rows:
             title, description, due_date_str, importance_str, urgency_str, fitness_str, status_str = row
@@ -167,7 +154,9 @@ class GUIController:
             importance = Priority[importance_str.upper()]
             urgency = Priority[urgency_str.upper()]
             fitness = Priority[fitness_str.upper()]
-            status = Status[status_str.upper()]
+
+            # Assign a default status if status_str is None
+            status = Status[status_str.upper()] if status_str else Status.OPEN
 
             task = Task(
                 title=title,
@@ -179,6 +168,7 @@ class GUIController:
                 status=status
             )
             self.tasks.append(task)
+            print(f"Loaded task: {task.title}, Status: {task.status}")  # Debug print
 
         conn.close()
         self.update_task_venn_diagram()
