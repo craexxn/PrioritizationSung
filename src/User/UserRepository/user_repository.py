@@ -12,8 +12,10 @@ class UserRepository:
     """
     UserRepository handles database operations for users.
     """
-
-    def __init__(self, db_path='database.db'):
+    def __init__(self, db_path=None):
+        if db_path is None:
+            # Construct the absolute path to database.db
+            db_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../Database/database.db'))
         self.db_path = db_path
 
     def save_user(self, user: User):

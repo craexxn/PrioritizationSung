@@ -26,21 +26,23 @@ class GUIController:
     """
     Controls the interaction between the GUI and the backend components.
     """
-
     def __init__(self, root):
         self.root = root
         self.root.title("Sung Task Manager")
 
+        print("Initializing GUIController")
         self.current_user = None  # Stores the logged-in user's name
         self.db_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../Database/database.db'))
 
         # Start the login window at the beginning of the session
+        print("Opening LoginWindow")
         self.login_window = LoginWindow(self)
 
-        # Database path
-        self.db_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../Database/database.db'))
+        # Initialize the task list here
+        self.tasks = []  # Initialize the tasks list
 
         # Initialize managers
+        print("Initializing managers")
         self.settings_manager = SettingsManager(db_path=self.db_path)
         self.archive_manager = ArchiveManager(db_path=self.db_path)
         self.notification_manager = NotificationManager(self.settings_manager)
@@ -51,15 +53,15 @@ class GUIController:
         # Create GUI elements
         self.create_widgets()
 
-        # Initialize task list
-        self.tasks = []
-        self.load_tasks()
-        self.initialize_priority_combinations()  # For testing
+        # Load tasks if user is logged in
+        if self.current_user:
+            self.load_tasks()
 
         # Schedule notifications
         self.schedule_notifications()
 
     def create_widgets(self):
+        print("Creating widgets")  # Debug print
         # # Main canvas for the Venn Diagram
         self.venn_canvas = Canvas(self.root, width=1024, height=1024)
         self.venn_canvas.pack(pady=0)  # Add space above canvas for button frame
@@ -89,6 +91,7 @@ class GUIController:
         tk.Button(btn_frame, text="Show Archive", command=self.show_archive).grid(row=0, column=5, padx=5)
         tk.Button(btn_frame, text="Settings", command=self.show_settings).grid(row=0, column=6, padx=5)
 
+        pass
 
     def draw_venn_diagram(self):
         """
@@ -135,6 +138,7 @@ class GUIController:
         self.low_listbox.place(x=850, y=80)
 
     def load_tasks(self):
+        print("Loading tasks for user")  # Debug print
         """
                 Loads tasks from the database that belong to the current user.
                 """
@@ -178,6 +182,8 @@ class GUIController:
 
         conn.close()
         self.update_task_venn_diagram()
+
+        pass
 
     def initialize_priority_combinations(self):
         """
@@ -446,3 +452,5 @@ class GUIController:
         notifications = self.notification_manager.schedule_notifications(self.tasks)
         for notification in notifications:
             messagebox.showinfo("Notification", f"Task '{notification['task'].title}' is due on {notification['due_date']}.")
+
+        pass
