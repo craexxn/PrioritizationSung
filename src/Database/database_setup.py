@@ -3,11 +3,12 @@ import sqlite3
 def initialize_database():
     """
     Initializes the SQLite database and creates necessary tables if they do not exist.
+    Adds a user_id column to link tasks to users if it is not already present.
     """
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
 
-    # Create the tasks table if it does not exist
+    # Create the tasks table if it does not exist, with a user_id column to link tasks to users
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS tasks (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -18,11 +19,13 @@ def initialize_database():
             urgency TEXT,
             fitness TEXT,
             status TEXT,
-            completed_date TEXT
+            completed_date TEXT,
+            user_id INTEGER,
+            FOREIGN KEY(user_id) REFERENCES users(id)
         )
     ''')
 
-    # Create the users table if it does not exist
+    # Create the users table if it does not exist, for user authentication and task linking
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -31,7 +34,7 @@ def initialize_database():
         )
     ''')
 
-    # Create the archived_tasks table if it does not exist
+    # Create the archived_tasks table if it does not exist, including user_id for user-specific archiving
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS archived_tasks (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -42,7 +45,9 @@ def initialize_database():
             urgency TEXT,
             fitness TEXT,
             status TEXT,
-            completed_date TEXT
+            completed_date TEXT,
+            user_id INTEGER,
+            FOREIGN KEY(user_id) REFERENCES users(id)
         )
     ''')
 

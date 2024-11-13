@@ -19,6 +19,7 @@ from settings_manager import SettingsManager
 from task_editor import TaskEditor
 from settings_window import SettingsWindow
 from archive_viewer import ArchiveViewer
+from login_window import LoginWindow
 
 
 class GUIController:
@@ -29,6 +30,12 @@ class GUIController:
     def __init__(self, root):
         self.root = root
         self.root.title("Sung Task Manager")
+
+        self.current_user = None  # Stores the logged-in user's name
+        self.db_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../Database/database.db'))
+
+        # Start the login window at the beginning of the session
+        self.login_window = LoginWindow(self)
 
         # Database path
         self.db_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../Database/database.db'))
@@ -129,14 +136,26 @@ class GUIController:
 
     def load_tasks(self):
         """
-        Loads tasks from the database and updates the task display on the Venn diagram.
-        """
+                Loads tasks from the database that belong to the current user.
+                """
+        if not self.current_user:
+            return  # No user logged in
+
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         self.tasks.clear()
 
-        cursor.execute('SELECT title, description, due_date, importance, urgency, fitness, status FROM tasks')
+        # Load tasks only for the current user
+        cursor.execute('''
+                    SELECT title, description, due_date, importance, urgency, fitness, status 
+                    FROM tasks 
+                    WHERE user_id = (
+                        SELECT id FROM users WHERE username = ?
+                    )
+                ''', (self.current_user,))
+
         rows = cursor.fetchall()
+        conn.close()
 
         for row in rows:
             title, description, due_date_str, importance_str, urgency_str, fitness_str, status_str = row

@@ -1,5 +1,6 @@
 import os
 import sys
+import sqlite3
 import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime
@@ -76,51 +77,39 @@ class TaskEditor(tk.Toplevel):
             messagebox.showerror("Invalid Date", "Please enter a valid date in the format YYYY-MM-DD.")
             return
 
-        # Check if due date is in the past
-        if due_date < datetime.today().date():
-            messagebox.showerror("Invalid Due Date", "The due date cannot be in the past. Please select a future date.")
-            return
-
-        # Limit title length to 50 characters
-        if len(title) > 30:
-            messagebox.showerror("Title Too Long", "The title should not exceed 30 characters.")
-            return
-
         # Convert dropdown values to match the Priority Enum
         importance = Priority[self.importance_var.get().upper()]
         urgency = Priority[self.urgency_var.get().upper()]
         fitness = Priority[self.fitness_var.get().upper()]
 
-        # Update existing task if editing or reactivating
+        # Use the current user's ID for the task
+        conn = sqlite3.connect(self.controller.db_path)
+        cursor = conn.cursor()
+
         if self.task:
-            self.task.title = title
-            self.task.description = description
-            self.task.due_date = due_date
-            self.task.importance = importance
-            self.task.urgency = urgency
-            self.task.fitness = fitness
-            self.task.status = Status.OPEN  # Set to active upon reactivation
-
-            # If it's a reactivated task, add it back to the main task list
-            if self.task not in self.controller.tasks:
-                self.controller.tasks.append(self.task)
-
-            if self.index is not None:
-                self.controller.tasks[self.index] = self.task
+            # Update an existing task
+            cursor.execute('''
+                UPDATE tasks 
+                SET title = ?, description = ?, due_date = ?, importance = ?, urgency = ?, fitness = ?, user_id = (
+                    SELECT id FROM users WHERE username = ?
+                )
+                WHERE id = ?
+            ''', (
+            title, description, due_date, importance.value, urgency.value, fitness.value, self.controller.current_user,
+            self.task.id))
         else:
-            # Create a new task
-            new_task = Task(
-                title=title,
-                description=description,
-                due_date=due_date,
-                importance=importance,
-                urgency=urgency,
-                fitness=fitness,
-                status=Status.OPEN
-            )
-            self.controller.tasks.append(new_task)
+            # Insert a new task with the user_id of the current user
+            cursor.execute('''
+                INSERT INTO tasks (title, description, due_date, importance, urgency, fitness, user_id)
+                VALUES (?, ?, ?, ?, ?, ?, (
+                    SELECT id FROM users WHERE username = ?
+                ))
+            ''', (
+            title, description, due_date, importance.value, urgency.value, fitness.value, self.controller.current_user))
 
-        # Refresh task display
-        self.controller.update_task_listbox()
-        self.destroy()
+        conn.commit()
+        conn.close()
+
+        self.controller.update_task_listbox()  # Refresh the task list
+        self.destroy()  # Close the editor window
 
