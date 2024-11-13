@@ -55,7 +55,7 @@ class GUIController:
     def create_widgets(self):
         # # Main canvas for the Venn Diagram
         self.venn_canvas = Canvas(self.root, width=1024, height=1024)
-        self.venn_canvas.pack(pady=(50, 10))  # Add space above canvas for button frame
+        self.venn_canvas.pack(pady=0)  # Add space above canvas for button frame
 
         # Draw Venn diagram areas with overlapping regions
         self.draw_venn_diagram()
@@ -256,20 +256,33 @@ class GUIController:
                 for i, task in enumerate(tasks):
                     angle_rad = math.radians(i * angle_step)
                     x = venn_center_x + high_high_high_radius * math.cos(angle_rad)
-                    y = venn_center_y + 100 + high_high_high_radius * math.sin(angle_rad)  # 100 is offset for "Do Now"
+                    y = venn_center_y + high_high_high_radius * math.sin(angle_rad)
                     text_id = self.venn_canvas.create_text(x, y, text=task.title, tags="task_text")
                     self.venn_canvas.tag_bind(text_id, "<Button-1>",
                                               lambda e, t=task, tid=text_id: self.select_task(e, t, tid))
             else:
-                # Arrange tasks with same position in a small circular pattern around the position
-                angle_step = 360 / len(tasks)
+                # Arrange tasks with the same position in a spiral pattern to avoid overlap
                 for i, task in enumerate(tasks):
-                    angle_rad = math.radians(i * angle_step)
-                    x_offset = position[0] + offset_radius * math.cos(angle_rad)
-                    y_offset = position[1] + offset_radius * math.sin(angle_rad)
+                    angle_rad = math.radians(i * 45)  # Adjust angle incrementally for spiral effect
+                    distance = offset_radius * (i + 1)  # Increase distance with each task
+                    x_offset = position[0] + distance * math.cos(angle_rad)
+                    y_offset = position[1] + distance * math.sin(angle_rad)
                     text_id = self.venn_canvas.create_text(x_offset, y_offset, text=task.title, tags="task_text")
                     self.venn_canvas.tag_bind(text_id, "<Button-1>",
                                               lambda e, t=task, tid=text_id: self.select_task(e, t, tid))
+
+    def check_overlap(self, bbox1, bbox2):
+        """
+        Checks if two bounding boxes overlap.
+        Returns False if either bbox is None.
+        """
+        if bbox1 is None or bbox2 is None:
+            return False  # No overlap if either bounding box is undefined
+
+        x1_min, y1_min, x1_max, y1_max = bbox1
+        x2_min, y2_min, x2_max, y2_max = bbox2
+
+        return not (x1_max < x2_min or x1_min > x2_max or y1_max < y2_min or y1_min > y2_max)
 
     def select_task(self, event, task, text_id):
         """

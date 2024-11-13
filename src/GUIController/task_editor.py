@@ -6,7 +6,8 @@ from datetime import datetime
 
 # Import paths for other modules
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../Task')))
-from task import Task, Priority
+
+from task import Task, Priority, Status
 
 class TaskEditor(tk.Toplevel):
     """
@@ -80,6 +81,11 @@ class TaskEditor(tk.Toplevel):
             messagebox.showerror("Invalid Due Date", "The due date cannot be in the past. Please select a future date.")
             return
 
+        # Limit title length to 50 characters
+        if len(title) > 30:
+            messagebox.showerror("Title Too Long", "The title should not exceed 30 characters.")
+            return
+
         # Convert dropdown values to match the Priority Enum
         importance = Priority[self.importance_var.get().upper()]
         urgency = Priority[self.urgency_var.get().upper()]
@@ -93,7 +99,7 @@ class TaskEditor(tk.Toplevel):
             self.task.importance = importance
             self.task.urgency = urgency
             self.task.fitness = fitness
-            self.task.status = Status.ACTIVE  # Set to active upon reactivation
+            self.task.status = Status.OPEN  # Set to active upon reactivation
 
             # If it's a reactivated task, add it back to the main task list
             if self.task not in self.controller.tasks:
@@ -110,7 +116,7 @@ class TaskEditor(tk.Toplevel):
                 importance=importance,
                 urgency=urgency,
                 fitness=fitness,
-                status=Status.ACTIVE
+                status=Status.OPEN
             )
             self.controller.tasks.append(new_task)
 
