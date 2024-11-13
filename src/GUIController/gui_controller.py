@@ -196,14 +196,17 @@ class GUIController:
 
     def update_task_venn_diagram(self):
         """
-        Updates the Venn diagram display with the current tasks, adding slight offsets for overlapping tasks.
-        Tasks with the same position are arranged in a circular pattern to avoid overlap.
+        Updates the Venn diagram display with the current tasks.
+        Tasks are positioned based on priority levels:
+        - Only one HIGH: positioned at the edge of the relevant priority circle.
+        - Two HIGHs: positioned at the edge of the overlap region of the two relevant circles.
+        - Three HIGHs: positioned in the center around "Do Now".
         """
         self.venn_canvas.delete("task_text")
 
+        # Define the center of the Venn Diagram
         venn_center_x, venn_center_y = 512, 512
-        medium_radius = 275
-        offset_radius = 15  # Radius for offset circle around each position for overlapping tasks
+        medium_radius = 375
         high_high_high_radius = 75  # Radius for the central "Do Now" region
 
         # Centers for each priority circle
@@ -211,65 +214,52 @@ class GUIController:
         urgency_center = (venn_center_x, venn_center_y + medium_radius)
         fitness_center = (venn_center_x + medium_radius, venn_center_y)
 
-        # Dictionary to track tasks at each position
-        position_count = {}
+        # Offset the "Do Now" region by 100 on the y-axis for HHH tasks
+        do_now_center_y = venn_center_y + 100
+
+        # Counter for arranging multiple tasks in the center region
+        high_high_high_counter = 0
+        high_high_high_angle_step = 45
 
         for task in self.tasks:
-            # Determine position based on priorities
             if task.importance == Priority.HIGH and task.urgency == Priority.HIGH and task.fitness == Priority.HIGH:
-                # Place tasks with HHH priority in a circular pattern around "Do Now"
-                if "HHH" not in position_count:
-                    position_count["HHH"] = []
-                position_count["HHH"].append(task)
+                # Position around the "Do Now" label in a circular layout
+                angle_rad = math.radians(high_high_high_angle_step * high_high_high_counter)
+                x = venn_center_x + high_high_high_radius * math.cos(angle_rad)
+                y = do_now_center_y + high_high_high_radius * math.sin(angle_rad)
+                high_high_high_counter += 1
+            elif task.importance == Priority.HIGH and task.urgency == Priority.HIGH:
+                # Position in the overlap region between Importance and Urgency
+                x = (importance_center[0] + urgency_center[0]) / 2
+                y = (importance_center[1] + urgency_center[1]) / 2
+            elif task.importance == Priority.HIGH and task.fitness == Priority.HIGH:
+                # Position in the overlap region between Importance and Fitness
+                x = (importance_center[0] + fitness_center[0]) / 2
+                y = (importance_center[1] + fitness_center[1]) / 2.3
+            elif task.urgency == Priority.HIGH and task.fitness == Priority.HIGH:
+                # Position in the overlap region between Urgency and Fitness
+                x = (urgency_center[0] + fitness_center[0]) / 2
+                y = (urgency_center[1] + fitness_center[1]) / 2
+            elif task.importance == Priority.HIGH:
+                # Position at the edge of the Importance circle
+                x = importance_center[0] * 1.4
+                y = importance_center[1] / 1.4
+            elif task.urgency == Priority.HIGH:
+                # Position at the edge of the Urgency circle
+                x = urgency_center[0]
+                y = urgency_center[1]
+            elif task.fitness == Priority.HIGH:
+                # Position at the edge of the Fitness circle
+                x = fitness_center[0] / 1.1
+                y = fitness_center[1] / 1.4
             else:
-                # Calculate position for other combinations of priorities
-                if task.importance == Priority.HIGH and task.urgency == Priority.HIGH:
-                    position = (
-                    (importance_center[0] + urgency_center[0]) / 2, (importance_center[1] + urgency_center[1]) / 2)
-                elif task.importance == Priority.HIGH and task.fitness == Priority.HIGH:
-                    position = (
-                    (importance_center[0] + fitness_center[0]) / 2, (importance_center[1] + fitness_center[1]) / 2)
-                elif task.urgency == Priority.HIGH and task.fitness == Priority.HIGH:
-                    position = (
-                    (urgency_center[0] + fitness_center[0]) / 2, (urgency_center[1] + fitness_center[1]) / 2)
-                elif task.importance == Priority.HIGH:
-                    position = importance_center
-                elif task.urgency == Priority.HIGH:
-                    position = urgency_center
-                elif task.fitness == Priority.HIGH:
-                    position = fitness_center
-                else:
-                    # For tasks with all LOWs, add to the "LOW Priority Tasks" list
-                    self.low_listbox.insert(tk.END, task.title)
-                    continue
+                # For tasks with all LOWs, add to the "LOW Priority Tasks" list
+                self.low_listbox.insert(tk.END, task.title)
+                continue
 
-                # Track tasks at this calculated position
-                if position not in position_count:
-                    position_count[position] = []
-                position_count[position].append(task)
-
-        # Display tasks at each position, applying offsets for overlapping tasks
-        for position, tasks in position_count.items():
-            if position == "HHH":
-                # Arrange HHH tasks in a circular pattern around "Do Now"
-                angle_step = 360 / len(tasks)
-                for i, task in enumerate(tasks):
-                    angle_rad = math.radians(i * angle_step)
-                    x = venn_center_x + high_high_high_radius * math.cos(angle_rad)
-                    y = venn_center_y + high_high_high_radius * math.sin(angle_rad)
-                    text_id = self.venn_canvas.create_text(x, y, text=task.title, tags="task_text")
-                    self.venn_canvas.tag_bind(text_id, "<Button-1>",
-                                              lambda e, t=task, tid=text_id: self.select_task(e, t, tid))
-            else:
-                # Arrange tasks with the same position in a spiral pattern to avoid overlap
-                for i, task in enumerate(tasks):
-                    angle_rad = math.radians(i * 45)  # Adjust angle incrementally for spiral effect
-                    distance = offset_radius * (i + 1)  # Increase distance with each task
-                    x_offset = position[0] + distance * math.cos(angle_rad)
-                    y_offset = position[1] + distance * math.sin(angle_rad)
-                    text_id = self.venn_canvas.create_text(x_offset, y_offset, text=task.title, tags="task_text")
-                    self.venn_canvas.tag_bind(text_id, "<Button-1>",
-                                              lambda e, t=task, tid=text_id: self.select_task(e, t, tid))
+            # Display the task title at the calculated position
+            text_id = self.venn_canvas.create_text(x, y, text=task.title, tags="task_text")
+            self.venn_canvas.tag_bind(text_id, "<Button-1>", lambda e, t=task, tid=text_id: self.select_task(e, t, tid))
 
     def check_overlap(self, bbox1, bbox2):
         """
