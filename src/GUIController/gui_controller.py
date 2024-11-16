@@ -68,7 +68,8 @@ class GUIController:
 
     def create_widgets(self):
         print("Creating widgets")  # Debug print
-        # # Main canvas for the Venn Diagram
+
+        # Main canvas for the Venn Diagram
         self.venn_canvas = Canvas(self.root, width=1024, height=1024)
         self.venn_canvas.pack(pady=0)  # Add space above canvas for button frame
 
@@ -77,9 +78,11 @@ class GUIController:
 
         # Create "LOW Priority Tasks" listbox on the right side
         self.low_listbox_label = tk.Label(self.root, text="LOW Priority Tasks", font=("Helvetica", 12, "bold"))
-        self.low_listbox_label.place(x=850, y=50)
-        self.low_listbox = tk.Listbox(self.root, selectmode=tk.SINGLE, width=25, height=20)
-        self.low_listbox.place(x=850, y=80)
+        self.low_listbox_label.place(relx=1.0, rely=0.05, anchor="ne")  # Align to the top-right corner of the window
+
+        # Adjust the size and position of the listbox
+        self.low_listbox = tk.Listbox(self.root, selectmode=tk.SINGLE, width=25, height=10)  # Reduced height
+        self.low_listbox.place(relx=1.0, rely=0.1, anchor="ne")  # Align below the label
 
         # Bind selection event for low_listbox to update selected task index
         self.low_listbox.bind("<<ListboxSelect>>", self.low_listbox_select)
@@ -97,7 +100,6 @@ class GUIController:
         tk.Button(btn_frame, text="Archive Task", command=self.archive_selected_task).grid(row=0, column=5, padx=5)
         tk.Button(btn_frame, text="Show Archive", command=self.show_archive).grid(row=0, column=6, padx=5)
         tk.Button(btn_frame, text="Settings", command=self.show_settings).grid(row=0, column=7, padx=5)
-
 
     def draw_venn_diagram(self):
         """
@@ -124,7 +126,8 @@ class GUIController:
         self.venn_canvas.create_oval(center_x - medium_radius + 150, center_y - medium_radius,
                                      center_x + medium_radius + 150, center_y + medium_radius,
                                      fill=fitness_color, outline="", tags="fitness_area")
-        self.venn_canvas.create_text(center_x + 150, center_y - medium_radius - 20, text="FITNESS: Make Time", fill="green",
+        self.venn_canvas.create_text(center_x + 150, center_y - medium_radius - 20, text="FITNESS: Make Time",
+                                     fill="green",
                                      font=("Helvetica", 14, "bold"))
 
         self.venn_canvas.create_oval(center_x - medium_radius, center_y - medium_radius + 150,
@@ -134,14 +137,8 @@ class GUIController:
                                      font=("Helvetica", 14, "bold"))
 
         # Text labels for Do Now section, adjusted to match new circle positions
-        self.venn_canvas.create_text(center_x, center_y + 100, text="Do Now", fill="black", font=("Helvetica", 16, "bold"))
-
-        # Add a "LOW" priority listbox on the right side of the window
-        self.low_listbox_label = tk.Label(self.root, text="LOW Priority Tasks", font=("Helvetica", 12, "bold"))
-        self.low_listbox_label.place(x=850, y=50)
-
-        self.low_listbox = tk.Listbox(self.root, selectmode=tk.SINGLE, width=25, height=20)
-        self.low_listbox.place(x=850, y=80)
+        self.venn_canvas.create_text(center_x, center_y + 100, text="Do Now", fill="black",
+                                     font=("Helvetica", 16, "bold"))
 
     def load_tasks(self, filters=None):
         """
