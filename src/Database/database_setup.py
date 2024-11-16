@@ -3,7 +3,7 @@ import sqlite3
 def initialize_database():
     """
     Initializes the SQLite database and creates necessary tables if they do not exist.
-    Adds a user_id column to link tasks to users if it is not already present.
+    Ensures all necessary columns and tables are created, including user-specific settings.
     """
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
@@ -47,6 +47,20 @@ def initialize_database():
             status TEXT,
             completed_date TEXT,
             user_id INTEGER,
+            FOREIGN KEY(user_id) REFERENCES users(id)
+        )
+    ''')
+
+    # Create the settings table if it does not exist, linked to users via user_id
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS settings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL UNIQUE,
+            notification_interval INTEGER DEFAULT 1,
+            auto_archive INTEGER DEFAULT 0,
+            auto_delete INTEGER DEFAULT 0,
+            notifications_enabled INTEGER DEFAULT 1,
+            default_priorities TEXT DEFAULT '{"importance": "LOW", "urgency": "LOW", "fitness": "LOW"}',
             FOREIGN KEY(user_id) REFERENCES users(id)
         )
     ''')
