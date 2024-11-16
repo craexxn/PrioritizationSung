@@ -1,7 +1,7 @@
 import os
 import sys
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import ttk, messagebox
 import sqlite3
 from datetime import datetime
 
@@ -24,6 +24,7 @@ class ArchiveViewer(tk.Toplevel):
         self.geometry("400x300")
         self.archive_manager = controller.archive_manager
         self.create_widgets()
+        self.archived_tasks = []  # Store archived tasks in memory
         self.load_archived_tasks()
 
     def create_widgets(self):
@@ -39,19 +40,29 @@ class ArchiveViewer(tk.Toplevel):
 
     def load_archived_tasks(self):
         """
-        Loads archived tasks from the database.
+        Loads archived tasks for the current user from the database and updates the archived_listbox.
         """
         self.archived_listbox.delete(0, tk.END)
         conn = sqlite3.connect(self.controller.db_path)
         cursor = conn.cursor()
-        cursor.execute('SELECT title, description, due_date, importance, urgency, fitness, status FROM archived_tasks')
-        rows = cursor.fetchall()
-        conn.close()
 
-        for row in rows:
-            title, description, due_date_str, importance_str, urgency_str, fitness_str, status_str = row
-            task_text = f"{title} - {due_date_str} - {status_str}"
-            self.archived_listbox.insert(tk.END, task_text)
+        try:
+            # Fetch archived tasks for the current user
+            cursor.execute('''
+                SELECT title, description, due_date, importance, urgency, fitness, status, completed_date 
+                FROM archived_tasks 
+                WHERE user_id = ?
+            ''', (self.controller.current_user_id,))
+            rows = cursor.fetchall()
+
+            for row in rows:
+                title, description, due_date_str, importance_str, urgency_str, fitness_str, status_str, completed_date_str = row
+                task_display = f"{title} - Due: {due_date_str if due_date_str else 'None'} - Status: {status_str} - Archived: {completed_date_str}"
+                self.archived_listbox.insert(tk.END, task_display)
+        except sqlite3.Error as e:
+            messagebox.showerror("Database Error", f"Error loading archived tasks: {e}")
+        finally:
+            conn.close()
 
     def reactivate_task(self):
         """
@@ -62,46 +73,31 @@ class ArchiveViewer(tk.Toplevel):
             messagebox.showwarning("No Selection", "Please select a task to reactivate.")
             return
 
-        selected_task_title = self.archived_listbox.get(selected_index).split(" - ")[0]
-
-        # Fetch the task details from the archive
+        task = self.archived_tasks[selected_index[0]]
         conn = sqlite3.connect(self.controller.db_path)
         cursor = conn.cursor()
-        cursor.execute(
-            'SELECT title, description, due_date, importance, urgency, fitness, status FROM archived_tasks WHERE title = ?',
-            (selected_task_title,))
-        task_data = cursor.fetchone()
 
-        if task_data:
-            title, description, due_date_str, importance_str, urgency_str, fitness_str, status_str = task_data
-            due_date = datetime.strptime(due_date_str, "%Y-%m-%d").date()
-            importance = Priority[importance_str.upper()]
-            urgency = Priority[urgency_str.upper()]
-            fitness = Priority[fitness_str.upper()]
-            status = Status.OPEN  # Set status to open when reactivating
+        # Insert task back into active tasks table
+        cursor.execute('''
+            INSERT INTO tasks (title, description, due_date, importance, urgency, fitness, status, user_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (
+            task.title, task.description, task.due_date.strftime('%Y-%m-%d') if task.due_date else None,
+            task.importance.value, task.urgency.value, task.fitness.value, Status.OPEN.value, self.controller.current_user_id
+        ))
 
-            # Create a new Task object and add it back to the main task list
-            reactivated_task = Task(
-                title=title,
-                description=description,
-                due_date=due_date,
-                importance=importance,
-                urgency=urgency,
-                fitness=fitness,
-                status=status
-            )
-
-            self.controller.tasks.append(reactivated_task)
-            self.controller.update_task_listbox()
-
-            # Delete the task from the archived_tasks table
-            cursor.execute('DELETE FROM archived_tasks WHERE title = ?', (title,))
-            conn.commit()  # Commit changes to the database
-            messagebox.showinfo("Task Reactivated", f"The task '{title}' has been reactivated.")
-
-            # Open the reactivated task in the TaskEditor
-            TaskEditor(self.controller, "Edit Task", task=reactivated_task, index=len(self.controller.tasks) - 1)
-
-        # Close the database connection after all operations are complete
+        # Remove task from archived tasks table
+        cursor.execute('DELETE FROM archived_tasks WHERE title = ? AND user_id = ?', (task.title, self.controller.current_user_id))
+        conn.commit()
         conn.close()
 
+        # Update GUI
+        self.controller.tasks.append(task)
+        self.controller.update_task_listbox()
+        messagebox.showinfo("Task Reactivated", f"The task '{task.title}' has been reactivated.")
+
+        # Open the task in the TaskEditor
+        TaskEditor(self.controller, "Edit Task", task=task)
+
+        # Reload archived tasks
+        self.load_archived_tasks()

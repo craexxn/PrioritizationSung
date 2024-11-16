@@ -427,15 +427,39 @@ class GUIController:
         if self.selected_task:
             task_to_archive = self.selected_task["task"]
             try:
-                # Archive the task
-                self.archive_manager.archive_task(task_to_archive)
+                conn = sqlite3.connect(self.db_path)
+                cursor = conn.cursor()
+
+                # Insert the task into the archived_tasks table with the user_id
+                cursor.execute('''
+                    INSERT INTO archived_tasks (title, description, due_date, importance, urgency, fitness, status, completed_date, user_id)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (
+                    task_to_archive.title,
+                    task_to_archive.description,
+                    task_to_archive.due_date.strftime("%Y-%m-%d") if task_to_archive.due_date else None,
+                    task_to_archive.importance.value,
+                    task_to_archive.urgency.value,
+                    task_to_archive.fitness.value,
+                    "COMPLETED",
+                    datetime.now().strftime("%Y-%m-%d"),
+                    self.current_user_id
+                ))
+
+                # Delete the task from the main tasks table
+                cursor.execute('DELETE FROM tasks WHERE title = ? AND user_id = ?',
+                               (task_to_archive.title, self.current_user_id))
+
+                conn.commit()
+                conn.close()
+
                 # Remove the task from the main task list and Venn diagram
                 self.tasks.remove(task_to_archive)
                 self.venn_canvas.delete(self.selected_task["text_id"])  # Remove from diagram
                 self.selected_task = None  # Clear selection
                 messagebox.showinfo("Success", f"Task '{task_to_archive.title}' has been archived.")
-            except ValueError as e:
-                messagebox.showerror("Error", str(e))
+            except sqlite3.Error as e:
+                messagebox.showerror("Database Error", f"Error archiving task: {e}")
 
         # Check if a task is selected in the "LOW Priority Tasks" listbox
         elif self.low_listbox.curselection():
@@ -444,14 +468,38 @@ class GUIController:
             task_to_archive = next((task for task in self.tasks if task.title == selected_task_title), None)
             if task_to_archive:
                 try:
-                    # Archive the task
-                    self.archive_manager.archive_task(task_to_archive)
+                    conn = sqlite3.connect(self.db_path)
+                    cursor = conn.cursor()
+
+                    # Insert the task into the archived_tasks table with the user_id
+                    cursor.execute('''
+                        INSERT INTO archived_tasks (title, description, due_date, importance, urgency, fitness, status, completed_date, user_id)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ''', (
+                        task_to_archive.title,
+                        task_to_archive.description,
+                        task_to_archive.due_date.strftime("%Y-%m-%d") if task_to_archive.due_date else None,
+                        task_to_archive.importance.value,
+                        task_to_archive.urgency.value,
+                        task_to_archive.fitness.value,
+                        "COMPLETED",
+                        datetime.now().strftime("%Y-%m-%d"),
+                        self.current_user_id
+                    ))
+
+                    # Delete the task from the main tasks table
+                    cursor.execute('DELETE FROM tasks WHERE title = ? AND user_id = ?',
+                                   (task_to_archive.title, self.current_user_id))
+
+                    conn.commit()
+                    conn.close()
+
                     # Remove the task from the main task list and listbox
                     self.tasks.remove(task_to_archive)
                     self.low_listbox.delete(selected_index)  # Remove from "LOW" listbox
                     messagebox.showinfo("Success", f"Task '{task_to_archive.title}' has been archived.")
-                except ValueError as e:
-                    messagebox.showerror("Error", str(e))
+                except sqlite3.Error as e:
+                    messagebox.showerror("Database Error", f"Error archiving task: {e}")
         else:
             messagebox.showwarning("No Selection", "Please select a task to archive.")
             return
@@ -460,7 +508,12 @@ class GUIController:
         self.update_task_listbox()
 
     def show_archive(self):
-        ArchiveViewer(self)
+        """
+        Opens the ArchiveViewer with filtering functionality.
+        """
+        print("Opening Archive Viewer...")  # Debugging output
+        archive_viewer = ArchiveViewer(self)
+        archive_viewer.load_archived_tasks()
 
     def show_settings(self):
         SettingsWindow(self)

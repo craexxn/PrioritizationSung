@@ -1,15 +1,13 @@
 import tkinter as tk
-from tkinter import messagebox
-from datetime import datetime
-
 
 class FilterController:
     """
-    Handles the search and filter functionality for tasks.
+    Handles the search and filter functionality for tasks and archived tasks.
     """
 
-    def __init__(self, gui_controller):
+    def __init__(self, gui_controller, is_archive=False):
         self.gui_controller = gui_controller
+        self.is_archive = is_archive  # Determine if filtering applies to the archive or active tasks
         self.filters = {}
 
         # Create filter widgets
@@ -27,34 +25,13 @@ class FilterController:
         self.search_entry = tk.Entry(filter_frame, width=20)
         self.search_entry.pack(side="left", padx=5)
 
-        # Filter: Status
-        tk.Label(filter_frame, text="Status:").pack(side="left", padx=5)
-        self.status_var = tk.StringVar(value="All")
-        status_options = ["All", "Open", "In Progress", "Completed"]
-        tk.OptionMenu(filter_frame, self.status_var, *status_options).pack(side="left", padx=5)
-
-        # Filter: Importance
-        tk.Label(filter_frame, text="Importance:").pack(side="left", padx=5)
-        self.importance_var = tk.StringVar(value="All")
-        importance_options = ["All", "High", "Low"]
-        tk.OptionMenu(filter_frame, self.importance_var, *importance_options).pack(side="left", padx=5)
-
-        # Filter: Urgency
-        tk.Label(filter_frame, text="Urgency:").pack(side="left", padx=5)
-        self.urgency_var = tk.StringVar(value="All")
-        urgency_options = ["All", "High", "Low"]
-        tk.OptionMenu(filter_frame, self.urgency_var, *urgency_options).pack(side="left", padx=5)
-
-        # Filter: Fitness
-        tk.Label(filter_frame, text="Fitness:").pack(side="left", padx=5)
-        self.fitness_var = tk.StringVar(value="All")
-        fitness_options = ["All", "High", "Low"]
-        tk.OptionMenu(filter_frame, self.fitness_var, *fitness_options).pack(side="left", padx=5)
-
-        # Filter: Due Date
-        tk.Label(filter_frame, text="Due Date (before):").pack(side="left", padx=5)
-        self.due_date_entry = tk.Entry(filter_frame, width=15)
-        self.due_date_entry.pack(side="left", padx=5)
+        # Filter: Importance, Urgency, Fitness
+        for priority in ["Importance", "Urgency", "Fitness"]:
+            tk.Label(filter_frame, text=f"{priority}:").pack(side="left", padx=5)
+            var = tk.StringVar(value="All")
+            setattr(self, f"{priority.lower()}_var", var)  # Store as attribute
+            options = ["All", "High", "Low"]
+            tk.OptionMenu(filter_frame, var, *options).pack(side="left", padx=5)
 
         # Apply and Reset Buttons
         tk.Button(filter_frame, text="Apply Filters", command=self.apply_filters).pack(side="left", padx=5)
@@ -62,7 +39,7 @@ class FilterController:
 
     def apply_filters(self):
         """
-        Applies the search and filter criteria and reloads the task list.
+        Applies the search and filter criteria and reloads the task list or archive.
         """
         filters = {}
 
@@ -71,46 +48,28 @@ class FilterController:
         if search_text:
             filters['search'] = search_text
 
-        # Status filter
-        status = self.status_var.get()
-        if status != "All":
-            filters['status'] = status
-
         # Priority filters
-        importance = self.importance_var.get()
-        if importance != "All":
-            filters['importance'] = importance
+        for priority in ["importance", "urgency", "fitness"]:
+            value = getattr(self, f"{priority}_var").get()
+            if value != "All":
+                filters[priority] = value.upper()
 
-        urgency = self.urgency_var.get()
-        if urgency != "All":
-            filters['urgency'] = urgency
-
-        fitness = self.fitness_var.get()
-        if fitness != "All":
-            filters['fitness'] = fitness
-
-        # Due date filter
-        due_date = self.due_date_entry.get().strip()
-        if due_date:
-            try:
-                filters['due_date'] = datetime.strptime(due_date, "%Y-%m-%d").date()
-            except ValueError:
-                messagebox.showerror("Invalid Date", "Please enter a valid date in the format YYYY-MM-DD.")
-                return
-
-        # Save and apply filters
-        self.filters = filters
-        self.gui_controller.load_tasks(filters)
+        # Apply filters to the appropriate view
+        if self.is_archive:
+            self.gui_controller.load_archived_tasks(filters)
+        else:
+            self.gui_controller.load_tasks(filters)
 
     def reset_filters(self):
         """
-        Resets all filter options and reloads the full task list.
+        Resets all filter options and reloads the full task list or archive.
         """
         self.search_entry.delete(0, tk.END)
-        self.status_var.set("All")
-        self.importance_var.set("All")
-        self.urgency_var.set("All")
-        self.fitness_var.set("All")
-        self.due_date_entry.delete(0, tk.END)
+        for priority in ["importance", "urgency", "fitness"]:
+            getattr(self, f"{priority}_var").set("All")
         self.filters = {}
-        self.gui_controller.load_tasks()
+
+        if self.is_archive:
+            self.gui_controller.load_archived_tasks()
+        else:
+            self.gui_controller.load_tasks()
