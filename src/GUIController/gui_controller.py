@@ -93,11 +93,11 @@ class GUIController:
         tk.Button(btn_frame, text="Edit Task", command=self.edit_task).grid(row=0, column=1, padx=5)
         tk.Button(btn_frame, text="Delete Task", command=self.delete_task).grid(row=0, column=2, padx=5)
         tk.Button(btn_frame, text="Mark as Completed", command=self.mark_task_completed).grid(row=0, column=3, padx=5)
-        tk.Button(btn_frame, text="Archive Task", command=self.archive_selected_task).grid(row=0, column=4, padx=5)
-        tk.Button(btn_frame, text="Show Archive", command=self.show_archive).grid(row=0, column=5, padx=5)
-        tk.Button(btn_frame, text="Settings", command=self.show_settings).grid(row=0, column=6, padx=5)
+        tk.Button(btn_frame, text="Mark as Open", command=self.mark_task_open).grid(row=0, column=4, padx=5)
+        tk.Button(btn_frame, text="Archive Task", command=self.archive_selected_task).grid(row=0, column=5, padx=5)
+        tk.Button(btn_frame, text="Show Archive", command=self.show_archive).grid(row=0, column=6, padx=5)
+        tk.Button(btn_frame, text="Settings", command=self.show_settings).grid(row=0, column=7, padx=5)
 
-        pass
 
     def draw_venn_diagram(self):
         """
@@ -503,4 +503,26 @@ class GUIController:
         for notification in notifications:
             messagebox.showinfo("Notification", f"Task '{notification['task'].title}' is due on {notification['due_date']}.")
 
-        pass
+    def mark_task_open(self):
+        """
+        Delegates marking a task as open to the TaskEditor.
+        """
+        # Check if a task is selected
+        if self.selected_task:
+            task_to_update = self.selected_task["task"]
+        elif self.low_listbox.curselection():
+            selected_index = self.low_listbox.curselection()[0]
+            selected_task_title = self.low_listbox.get(selected_index)
+            task_to_update = next((task for task in self.tasks if task.title == selected_task_title), None)
+        else:
+            messagebox.showwarning("No Selection", "Please select a completed task to mark as open.")
+            return
+
+        # Call TaskEditor's method
+        if task_to_update:
+            if task_to_update.status != Status.COMPLETED:
+                messagebox.showerror("Error", "Only completed tasks can be marked as open.")
+                return
+
+            # Delegate task status change to TaskEditor
+            TaskEditor.mark_task_open(task_to_update, self)

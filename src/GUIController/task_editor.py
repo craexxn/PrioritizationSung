@@ -13,7 +13,7 @@ from task import Task, Priority, Status
 
 class TaskEditor(tk.Toplevel):
     """
-    Window for adding or editing a task.
+    Window for adding, editing, or updating a task's status.
     """
 
     def __init__(self, controller, title, task=None, index=None):
@@ -65,7 +65,10 @@ class TaskEditor(tk.Toplevel):
         if task:
             self.fitness_combo.set(task.fitness.value)
 
+        # Buttons
         tk.Button(self, text="Save", command=self.save_task).pack(pady=10)
+        if self.task and self.task.status == Status.COMPLETED:
+            tk.Button(self, text="Mark as Open", command=self.mark_task_open).pack(pady=5)  # New Button
 
     def save_task(self):
         """
@@ -123,3 +126,28 @@ class TaskEditor(tk.Toplevel):
         messagebox.showinfo("Success", "Task saved successfully.")
         self.controller.load_tasks()  # Refresh the task list
         self.destroy()  # Close the editor window
+
+    @staticmethod
+    def mark_task_open(task, controller):
+        """
+        Marks the given task as open and updates the database.
+        """
+        try:
+            conn = sqlite3.connect(controller.db_path)
+            cursor = conn.cursor()
+
+            # Update the task's status in the database
+            cursor.execute('''
+                UPDATE tasks
+                SET status = ?
+                WHERE id = ?
+            ''', (Status.OPEN.value, task.id))
+            conn.commit()
+            conn.close()
+
+            # Update the task's status in the task list
+            task.status = Status.OPEN
+            messagebox.showinfo("Success", f"Task '{task.title}' marked as open.")
+            controller.load_tasks()  # Reload the task list
+        except sqlite3.Error as e:
+            messagebox.showerror("Database Error", f"Error marking task as open: {e}")
