@@ -143,42 +143,18 @@ class GUIController:
         self.low_listbox = tk.Listbox(self.root, selectmode=tk.SINGLE, width=25, height=20)
         self.low_listbox.place(x=850, y=80)
 
-    def load_tasks(self, filters=None):
-        """
-        Loads tasks from the database and applies filters if provided.
-        :param filters: Dictionary of filters to apply.
-        """
+    def load_tasks(self):
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         self.tasks.clear()
 
-        print(f"Loading tasks for user {self.current_user_id}")  # Debug print
+        print(f"Loading tasks for user {self.current_user_id}")
 
-        query = 'SELECT title, description, due_date, importance, urgency, fitness, status FROM tasks WHERE user_id = ?'
-        params = [self.current_user_id]
-
-        # Apply filters dynamically
-        if filters:
-            if 'search' in filters:
-                query += ' AND (title LIKE ? OR description LIKE ?)'
-                params.extend([f"%{filters['search']}%", f"%{filters['search']}%"])
-            if 'status' in filters:
-                query += ' AND status = ?'
-                params.append(filters['status'].upper())
-            if 'importance' in filters:
-                query += ' AND importance = ?'
-                params.append(filters['importance'].capitalize())
-            if 'urgency' in filters:
-                query += ' AND urgency = ?'
-                params.append(filters['urgency'].capitalize())
-            if 'fitness' in filters:
-                query += ' AND fitness = ?'
-                params.append(filters['fitness'].capitalize())
-            if 'due_date' in filters:
-                query += ' AND due_date <= ?'
-                params.append(filters['due_date'])
-
-        cursor.execute(query, params)
+        # Lade nur Benutzeraufgaben
+        cursor.execute(
+            'SELECT title, description, due_date, importance, urgency, fitness, status FROM tasks WHERE user_id = ?',
+            (self.current_user_id,)
+        )
         rows = cursor.fetchall()
 
         for row in rows:
@@ -207,9 +183,9 @@ class GUIController:
 
     def initialize_priority_combinations(self):
         """
-        Initializes tasks with all possible priority combinations (HHH, HHL, HLH, etc.)
-        and displays them on the Venn diagram for visualization purposes.
+        Initializes tasks with all possible priority combinations (HHH, HHL, HLH, etc.).
         """
+        print("Initializing priority combinations...")  # Debug-Ausgabe
         combinations = [
             ("HHH", Priority.HIGH, Priority.HIGH, Priority.HIGH),
             ("HHL", Priority.HIGH, Priority.HIGH, Priority.LOW),
@@ -218,36 +194,33 @@ class GUIController:
             ("LLH", Priority.LOW, Priority.LOW, Priority.HIGH),
             ("LHL", Priority.LOW, Priority.HIGH, Priority.LOW),
             ("HLL", Priority.HIGH, Priority.LOW, Priority.LOW),
-            ("LLL", Priority.LOW, Priority.LOW, Priority.LOW)
+            ("LLL", Priority.LOW, Priority.LOW, Priority.LOW),
         ]
 
-        # Clear existing tasks in case you don't want to mix these with real tasks
-        self.tasks.clear()
+        self.tasks.clear()  # Überschreibe keine gespeicherten Tasks!
 
-        # Create a task for each combination and add it to the tasks list
         for name, importance, urgency, fitness in combinations:
             task = Task(
                 title=name,
                 description=f"Task with priority {name}",
-                due_date=datetime.today().date(),
+                due_date=None,  # Kein Fälligkeitsdatum
                 importance=importance,
                 urgency=urgency,
-                fitness=fitness
+                fitness=fitness,
+                status=Status.OPEN
             )
-            self.tasks.append(task)
+            self.tasks.append(task)  # Debugging-Daten hinzufügen
 
-        # Refresh the Venn Diagram display with the initialized tasks
         self.update_task_venn_diagram()
 
     def update_task_venn_diagram(self):
         """
         Updates the Venn diagram display with the current tasks.
-        Tasks are positioned based on priority levels:
-        - Only one HIGH: positioned at the edge of the relevant priority circle.
-        - Two HIGHs: positioned at the edge of the overlap region of the two relevant circles.
-        - Three HIGHs: positioned in the center around "Do Now".
+        Ensures tasks are correctly displayed based on their priorities without duplicates.
         """
-        self.venn_canvas.delete("task_text")
+        print("Updating Venn Diagram...")  # Debug-Ausgabe
+        self.venn_canvas.delete("task_text")  # Entferne alte Task-Darstellungen
+        self.low_listbox.delete(0, tk.END)  # Entferne alte LOW-Prioritätseinträge
 
         # Define the center of the Venn Diagram
         venn_center_x, venn_center_y = 512, 512
@@ -267,6 +240,8 @@ class GUIController:
         high_high_high_angle_step = 45
 
         for task in self.tasks:
+            print(
+                f"Rendering task: {task.title} with priority ({task.importance}, {task.urgency}, {task.fitness})")  # Debug
             if task.importance == Priority.HIGH and task.urgency == Priority.HIGH and task.fitness == Priority.HIGH:
                 # Position around the "Do Now" label in a circular layout
                 angle_rad = math.radians(high_high_high_angle_step * high_high_high_counter)
@@ -299,25 +274,13 @@ class GUIController:
                 y = fitness_center[1] / 1.4
             else:
                 # For tasks with all LOWs, add to the "LOW Priority Tasks" list
-                self.low_listbox.insert(tk.END, task.title)
+                if task.title not in self.low_listbox.get(0, tk.END):
+                    self.low_listbox.insert(tk.END, task.title)  # Füge nur einzigartige Tasks hinzu
                 continue
 
             # Display the task title at the calculated position
             text_id = self.venn_canvas.create_text(x, y, text=task.title, tags="task_text")
             self.venn_canvas.tag_bind(text_id, "<Button-1>", lambda e, t=task, tid=text_id: self.select_task(e, t, tid))
-
-    def check_overlap(self, bbox1, bbox2):
-        """
-        Checks if two bounding boxes overlap.
-        Returns False if either bbox is None.
-        """
-        if bbox1 is None or bbox2 is None:
-            return False  # No overlap if either bounding box is undefined
-
-        x1_min, y1_min, x1_max, y1_max = bbox1
-        x2_min, y2_min, x2_max, y2_max = bbox2
-
-        return not (x1_max < x2_min or x1_min > x2_max or y1_max < y2_min or y1_min > y2_max)
 
     def select_task(self, event, task, text_id):
         """
@@ -360,7 +323,10 @@ class GUIController:
                 self.low_listbox.insert(tk.END, task.title)
 
     def low_listbox_select(self, event):
-        selected_index = self.low_listbox.curselection()
+        """
+        Handles the selection of a task in the LOW Priority Tasks listbox.
+        """
+        selected_index = self.low_listbox.curselection()  # Korrektur: Hier wird `low_listbox` verwendet
         if not selected_index:
             return
 
@@ -369,8 +335,8 @@ class GUIController:
 
         if selected_task:
             self.selected_task_index = self.tasks.index(selected_task)
-            # Clear selection in the Venn diagram
-            self.task_listbox.selection_clear(0, tk.END)
+            # Clear selection in the Venn diagram (falls notwendig)
+            self.venn_canvas.delete("task_text")  # Beispielaktion
         else:
             self.selected_task_index = None
 
