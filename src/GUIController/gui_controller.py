@@ -143,26 +143,58 @@ class GUIController:
         self.low_listbox = tk.Listbox(self.root, selectmode=tk.SINGLE, width=25, height=20)
         self.low_listbox.place(x=850, y=80)
 
-    def load_tasks(self):
+    def load_tasks(self, filters=None):
+        """
+        Loads tasks from the database based on the given filters.
+        """
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         self.tasks.clear()
+        print(f"Loading tasks for user {self.current_user_id}")  # Debug print
 
-        print(f"Loading tasks for user {self.current_user_id}")
+        # Base query
+        query = '''
+            SELECT title, description, due_date, importance, urgency, fitness, status 
+            FROM tasks 
+            WHERE user_id = ?
+        '''
+        params = [self.current_user_id]
 
-        # Lade nur Benutzeraufgaben
-        cursor.execute(
-            'SELECT title, description, due_date, importance, urgency, fitness, status FROM tasks WHERE user_id = ?',
-            (self.current_user_id,)
-        )
+        # Apply filters if any
+        if filters:
+            if 'importance' in filters:
+                query += ' AND UPPER(importance) = ?'
+                params.append(filters['importance'].upper())
+            if 'urgency' in filters:
+                query += ' AND UPPER(urgency) = ?'
+                params.append(filters['urgency'].upper())
+            if 'fitness' in filters:
+                query += ' AND UPPER(fitness) = ?'
+                params.append(filters['fitness'].upper())
+            if 'search' in filters:
+                query += ' AND title LIKE ?'
+                params.append(f"%{filters['search']}%")
+            if 'status' in filters:
+                query += ' AND UPPER(status) = ?'
+                params.append(filters['status'].upper())
+            if 'due_date' in filters:
+                query += ' AND due_date <= ?'
+                params.append(filters['due_date'].strftime("%Y-%m-%d"))
+
+        print(f"Executing query: {query} with params: {params}")  # Debug print
+        cursor.execute(query, params)
         rows = cursor.fetchall()
 
         for row in rows:
             title, description, due_date_str, importance_str, urgency_str, fitness_str, status_str = row
             due_date = datetime.strptime(due_date_str, '%Y-%m-%d').date() if due_date_str else None
+
+            # Convert database values to Priority Enum
             importance = Priority[importance_str.upper()]
             urgency = Priority[urgency_str.upper()]
             fitness = Priority[fitness_str.upper()]
+
+            # Default to OPEN if status is None
             status = Status[status_str.upper()] if status_str else Status.OPEN
 
             task = Task(
@@ -175,11 +207,10 @@ class GUIController:
                 status=status
             )
             self.tasks.append(task)
+            print(f"Loaded task: {task.title}, Status: {task.status}")  # Debug print
 
         conn.close()
         self.update_task_venn_diagram()
-
-        pass
 
     def initialize_priority_combinations(self):
         """

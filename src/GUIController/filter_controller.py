@@ -5,12 +5,12 @@ from datetime import datetime
 
 class FilterController:
     """
-    Handles the search and filter functionality for tasks, including filtering by multiple priorities.
+    Handles the search and filter functionality for tasks.
     """
 
     def __init__(self, gui_controller):
         self.gui_controller = gui_controller
-        self.filters = {}  # Stores the active filter settings
+        self.filters = {}
 
         # Create filter widgets
         self.create_filter_widgets()
@@ -33,22 +33,22 @@ class FilterController:
         status_options = ["All", "Open", "In Progress", "Completed"]
         tk.OptionMenu(filter_frame, self.status_var, *status_options).pack(side="left", padx=5)
 
-        # Filter: Importance Priority
+        # Filter: Importance
         tk.Label(filter_frame, text="Importance:").pack(side="left", padx=5)
         self.importance_var = tk.StringVar(value="All")
-        importance_options = ["All", "High", "Medium", "Low"]
+        importance_options = ["All", "High", "Low"]
         tk.OptionMenu(filter_frame, self.importance_var, *importance_options).pack(side="left", padx=5)
 
-        # Filter: Urgency Priority
+        # Filter: Urgency
         tk.Label(filter_frame, text="Urgency:").pack(side="left", padx=5)
         self.urgency_var = tk.StringVar(value="All")
-        urgency_options = ["All", "High", "Medium", "Low"]
+        urgency_options = ["All", "High", "Low"]
         tk.OptionMenu(filter_frame, self.urgency_var, *urgency_options).pack(side="left", padx=5)
 
-        # Filter: Fitness Priority
+        # Filter: Fitness
         tk.Label(filter_frame, text="Fitness:").pack(side="left", padx=5)
         self.fitness_var = tk.StringVar(value="All")
-        fitness_options = ["All", "High", "Medium", "Low"]
+        fitness_options = ["All", "High", "Low"]
         tk.OptionMenu(filter_frame, self.fitness_var, *fitness_options).pack(side="left", padx=5)
 
         # Filter: Due Date
@@ -76,17 +76,15 @@ class FilterController:
         if status != "All":
             filters['status'] = status
 
-        # Importance Priority filter
+        # Priority filters
         importance = self.importance_var.get()
         if importance != "All":
             filters['importance'] = importance
 
-        # Urgency Priority filter
         urgency = self.urgency_var.get()
         if urgency != "All":
             filters['urgency'] = urgency
 
-        # Fitness Priority filter
         fitness = self.fitness_var.get()
         if fitness != "All":
             filters['fitness'] = fitness
