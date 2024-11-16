@@ -409,32 +409,39 @@ class GUIController:
 
     def mark_task_completed(self):
         """
-        Marks the selected task as completed.
+        Marks the selected task as completed. If auto-archive is enabled, the task will be archived immediately.
         """
         if self.selected_task_index is None:
             messagebox.showwarning("No Selection", "Please select a task to mark as completed.")
             return
+
         selected_task = self.tasks[self.selected_task_index]
         selected_task.status = Status.COMPLETED
-        messagebox.showinfo("Task Completed", f"Task '{selected_task.title}' has been marked as completed.")
-        self.update_task_listbox()
 
-    def archive_selected_task(self):
+        # Check if auto-archive is enabled
+        if self.settings_manager.get_settings().get("auto_archive", False):
+            self.archive_selected_task(task_to_archive=selected_task)  # Archive the task directly
+        else:
+            messagebox.showinfo("Task Completed", f"Task '{selected_task.title}' has been marked as completed.")
+
+        self.update_task_listbox()  # Refresh the task list
+
+    def archive_selected_task(self, task_to_archive=None):
         """
-        Archives the selected task if it is completed and updates the diagram and listbox accordingly.
+        Archives the given task (or the selected task if none is provided) if it is completed
+        and updates the diagram and listbox accordingly.
         """
-        task_to_archive = None
+        if not task_to_archive:
+            # Check if a task is selected in the Venn diagram
+            if self.selected_task:
+                task_to_archive = self.selected_task["task"]
+            # Check if a task is selected in the "LOW Priority Tasks" listbox
+            elif self.low_listbox.curselection():
+                selected_index = self.low_listbox.curselection()[0]
+                selected_task_title = self.low_listbox.get(selected_index)
+                task_to_archive = next((task for task in self.tasks if task.title == selected_task_title), None)
 
-        # Check if a task is selected in the Venn diagram
-        if self.selected_task:
-            task_to_archive = self.selected_task["task"]
-        # Check if a task is selected in the "LOW Priority Tasks" listbox
-        elif self.low_listbox.curselection():
-            selected_index = self.low_listbox.curselection()[0]
-            selected_task_title = self.low_listbox.get(selected_index)
-            task_to_archive = next((task for task in self.tasks if task.title == selected_task_title), None)
-
-        # Check if no task was selected
+        # Check if no task was provided or selected
         if not task_to_archive:
             messagebox.showwarning("No Selection", "Please select a task to archive.")
             return
