@@ -11,6 +11,8 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../T
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../ArchiveManager')))
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../NotificationManager')))
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../SettingsManager')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../FilterController')))
+
 
 from task import Task, Priority, Status
 from archive_manager import ArchiveManager
@@ -20,6 +22,7 @@ from task_editor import TaskEditor
 from settings_window import SettingsWindow
 from archive_viewer import ArchiveViewer
 from login_window import LoginWindow
+from filter_controller import FilterController
 
 
 class GUIController:
@@ -59,6 +62,9 @@ class GUIController:
 
         # Schedule notifications
         self.schedule_notifications()
+
+        # Initialize the filter controller for task search and filtering functionality
+        self.filter_controller = FilterController(self)
 
     def create_widgets(self):
         print("Creating widgets")  # Debug print
@@ -137,15 +143,42 @@ class GUIController:
         self.low_listbox = tk.Listbox(self.root, selectmode=tk.SINGLE, width=25, height=20)
         self.low_listbox.place(x=850, y=80)
 
-    def load_tasks(self):
+    def load_tasks(self, filters=None):
+        """
+        Loads tasks from the database and applies filters if provided.
+        :param filters: Dictionary of filters to apply.
+        """
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         self.tasks.clear()
+
         print(f"Loading tasks for user {self.current_user_id}")  # Debug print
 
-        cursor.execute(
-            'SELECT title, description, due_date, importance, urgency, fitness, status FROM tasks WHERE user_id = ?',
-            (self.current_user_id,))
+        query = 'SELECT title, description, due_date, importance, urgency, fitness, status FROM tasks WHERE user_id = ?'
+        params = [self.current_user_id]
+
+        # Apply filters dynamically
+        if filters:
+            if 'search' in filters:
+                query += ' AND (title LIKE ? OR description LIKE ?)'
+                params.extend([f"%{filters['search']}%", f"%{filters['search']}%"])
+            if 'status' in filters:
+                query += ' AND status = ?'
+                params.append(filters['status'].upper())
+            if 'importance' in filters:
+                query += ' AND importance = ?'
+                params.append(filters['importance'].capitalize())
+            if 'urgency' in filters:
+                query += ' AND urgency = ?'
+                params.append(filters['urgency'].capitalize())
+            if 'fitness' in filters:
+                query += ' AND fitness = ?'
+                params.append(filters['fitness'].capitalize())
+            if 'due_date' in filters:
+                query += ' AND due_date <= ?'
+                params.append(filters['due_date'])
+
+        cursor.execute(query, params)
         rows = cursor.fetchall()
 
         for row in rows:
@@ -154,8 +187,6 @@ class GUIController:
             importance = Priority[importance_str.upper()]
             urgency = Priority[urgency_str.upper()]
             fitness = Priority[fitness_str.upper()]
-
-            # Assign a default status if status_str is None
             status = Status[status_str.upper()] if status_str else Status.OPEN
 
             task = Task(
@@ -168,7 +199,6 @@ class GUIController:
                 status=status
             )
             self.tasks.append(task)
-            print(f"Loaded task: {task.title}, Status: {task.status}")  # Debug print
 
         conn.close()
         self.update_task_venn_diagram()

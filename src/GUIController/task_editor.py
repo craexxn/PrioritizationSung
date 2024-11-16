@@ -10,6 +10,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../T
 
 from task import Task, Priority, Status
 
+
 class TaskEditor(tk.Toplevel):
     """
     Window for adding or editing a task.
@@ -44,21 +45,21 @@ class TaskEditor(tk.Toplevel):
 
         # Dropdowns for priority levels
         tk.Label(self, text="Importance:").pack(pady=5)
-        self.importance_var = tk.StringVar(value="HIGH")
+        self.importance_var = tk.StringVar(value="Select Priority")
         self.importance_combo = ttk.Combobox(self, textvariable=self.importance_var, values=[p.value for p in Priority], state="readonly")
         self.importance_combo.pack(pady=5)
         if task:
             self.importance_combo.set(task.importance.value)
 
         tk.Label(self, text="Urgency:").pack(pady=5)
-        self.urgency_var = tk.StringVar(value="LOW")
+        self.urgency_var = tk.StringVar(value="Select Priority")
         self.urgency_combo = ttk.Combobox(self, textvariable=self.urgency_var, values=[p.value for p in Priority], state="readonly")
         self.urgency_combo.pack(pady=5)
         if task:
             self.urgency_combo.set(task.urgency.value)
 
         tk.Label(self, text="Fitness:").pack(pady=5)
-        self.fitness_var = tk.StringVar(value="LOW")
+        self.fitness_var = tk.StringVar(value="Select Priority")
         self.fitness_combo = ttk.Combobox(self, textvariable=self.fitness_var, values=[p.value for p in Priority], state="readonly")
         self.fitness_combo.pack(pady=5)
         if task:
@@ -67,48 +68,58 @@ class TaskEditor(tk.Toplevel):
         tk.Button(self, text="Save", command=self.save_task).pack(pady=10)
 
     def save_task(self):
-        title = self.title_entry.get()
+        """
+        Saves the task to the database.
+        """
+        title = self.title_entry.get().strip()
         description = self.description_text.get("1.0", tk.END).strip()
-        due_date_str = self.due_date_entry.get()
-        user_id = self.controller.current_user_id  # Assuming you store current_user_id after login
-        # Check task attributes before saving
-        print(f"Saving task for user {user_id}: {title}, {description}, due date: {due_date}")
+        due_date_str = self.due_date_entry.get().strip()
+        user_id = self.controller.current_user_id
 
-        try:
-            due_date = datetime.strptime(due_date_str, "%Y-%m-%d").date()
-        except ValueError:
-            messagebox.showerror("Invalid Date", "Please enter a valid date in the format YYYY-MM-DD.")
+        # Validate input
+        if not title:
+            messagebox.showerror("Error", "Title is required.")
             return
 
-        # Convert dropdown values to match the Priority Enum
+        if self.importance_var.get() == "Select Priority" or self.urgency_var.get() == "Select Priority" or self.fitness_var.get() == "Select Priority":
+            messagebox.showerror("Error", "All priority levels must be selected.")
+            return
+
+        # Parse due_date if provided
+        due_date = None
+        if due_date_str:
+            try:
+                due_date = datetime.strptime(due_date_str, "%Y-%m-%d").date()
+            except ValueError:
+                messagebox.showerror("Error", "Invalid due date format. Use YYYY-MM-DD.")
+                return
+
+        # Convert dropdown values to Priority Enum
         importance = Priority[self.importance_var.get().upper()]
         urgency = Priority[self.urgency_var.get().upper()]
         fitness = Priority[self.fitness_var.get().upper()]
+        status = self.task.status if self.task else Status.OPEN
 
-        # Use the current user's ID for the task
         conn = sqlite3.connect(self.controller.db_path)
         cursor = conn.cursor()
 
         if self.task:
-            # Update an existing task
+            # Update existing task
             cursor.execute('''
-                UPDATE tasks 
-                SET title = ?, description = ?, due_date = ?, importance = ?, urgency = ?, fitness = ?, user_id = (
-                    SELECT id FROM users WHERE username = ?
-                )
+                UPDATE tasks
+                SET title = ?, description = ?, due_date = ?, importance = ?, urgency = ?, fitness = ?, status = ?
                 WHERE id = ?
-            ''', (
-            title, description, due_date, importance.value, urgency.value, fitness.value, self.controller.current_user,
-            self.task.id))
+            ''', (title, description, due_date, importance.value, urgency.value, fitness.value, status.value, self.task.id))
         else:
-            # Insert a new task with the user_id of the current user
+            # Insert new task
             cursor.execute('''
-                    INSERT INTO tasks (title, description, due_date, importance, urgency, fitness, status, user_id)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                ''', (title, description, due_date, importance, urgency, fitness, status, user_id))
-            conn.commit()
+                INSERT INTO tasks (title, description, due_date, importance, urgency, fitness, status, user_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (title, description, due_date, importance.value, urgency.value, fitness.value, status.value, user_id))
+
+        conn.commit()
         conn.close()
 
-        self.controller.update_task_listbox()  # Refresh the task list
+        messagebox.showinfo("Success", "Task saved successfully.")
+        self.controller.load_tasks()  # Refresh the task list
         self.destroy()  # Close the editor window
-
