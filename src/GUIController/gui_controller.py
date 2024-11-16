@@ -421,88 +421,68 @@ class GUIController:
 
     def archive_selected_task(self):
         """
-        Archives the selected task and updates the diagram and listbox accordingly.
+        Archives the selected task if it is completed and updates the diagram and listbox accordingly.
         """
+        task_to_archive = None
+
         # Check if a task is selected in the Venn diagram
         if self.selected_task:
             task_to_archive = self.selected_task["task"]
-            try:
-                conn = sqlite3.connect(self.db_path)
-                cursor = conn.cursor()
-
-                # Insert the task into the archived_tasks table with the user_id
-                cursor.execute('''
-                    INSERT INTO archived_tasks (title, description, due_date, importance, urgency, fitness, status, completed_date, user_id)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ''', (
-                    task_to_archive.title,
-                    task_to_archive.description,
-                    task_to_archive.due_date.strftime("%Y-%m-%d") if task_to_archive.due_date else None,
-                    task_to_archive.importance.value,
-                    task_to_archive.urgency.value,
-                    task_to_archive.fitness.value,
-                    "COMPLETED",
-                    datetime.now().strftime("%Y-%m-%d"),
-                    self.current_user_id
-                ))
-
-                # Delete the task from the main tasks table
-                cursor.execute('DELETE FROM tasks WHERE title = ? AND user_id = ?',
-                               (task_to_archive.title, self.current_user_id))
-
-                conn.commit()
-                conn.close()
-
-                # Remove the task from the main task list and Venn diagram
-                self.tasks.remove(task_to_archive)
-                self.venn_canvas.delete(self.selected_task["text_id"])  # Remove from diagram
-                self.selected_task = None  # Clear selection
-                messagebox.showinfo("Success", f"Task '{task_to_archive.title}' has been archived.")
-            except sqlite3.Error as e:
-                messagebox.showerror("Database Error", f"Error archiving task: {e}")
-
         # Check if a task is selected in the "LOW Priority Tasks" listbox
         elif self.low_listbox.curselection():
             selected_index = self.low_listbox.curselection()[0]
             selected_task_title = self.low_listbox.get(selected_index)
             task_to_archive = next((task for task in self.tasks if task.title == selected_task_title), None)
-            if task_to_archive:
-                try:
-                    conn = sqlite3.connect(self.db_path)
-                    cursor = conn.cursor()
 
-                    # Insert the task into the archived_tasks table with the user_id
-                    cursor.execute('''
-                        INSERT INTO archived_tasks (title, description, due_date, importance, urgency, fitness, status, completed_date, user_id)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    ''', (
-                        task_to_archive.title,
-                        task_to_archive.description,
-                        task_to_archive.due_date.strftime("%Y-%m-%d") if task_to_archive.due_date else None,
-                        task_to_archive.importance.value,
-                        task_to_archive.urgency.value,
-                        task_to_archive.fitness.value,
-                        "COMPLETED",
-                        datetime.now().strftime("%Y-%m-%d"),
-                        self.current_user_id
-                    ))
-
-                    # Delete the task from the main tasks table
-                    cursor.execute('DELETE FROM tasks WHERE title = ? AND user_id = ?',
-                                   (task_to_archive.title, self.current_user_id))
-
-                    conn.commit()
-                    conn.close()
-
-                    # Remove the task from the main task list and listbox
-                    self.tasks.remove(task_to_archive)
-                    self.low_listbox.delete(selected_index)  # Remove from "LOW" listbox
-                    messagebox.showinfo("Success", f"Task '{task_to_archive.title}' has been archived.")
-                except sqlite3.Error as e:
-                    messagebox.showerror("Database Error", f"Error archiving task: {e}")
-        else:
+        # Check if no task was selected
+        if not task_to_archive:
             messagebox.showwarning("No Selection", "Please select a task to archive.")
             return
+
+        # Ensure the task is completed before archiving
+        if task_to_archive.status != Status.COMPLETED:
+            messagebox.showerror("Error", f"Task '{task_to_archive.title}' is not completed and cannot be archived.")
+            return
+
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            # Insert the task into the archived_tasks table with the user_id
+            cursor.execute('''
+                INSERT INTO archived_tasks (title, description, due_date, importance, urgency, fitness, status, completed_date, user_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                task_to_archive.title,
+                task_to_archive.description,
+                task_to_archive.due_date.strftime("%Y-%m-%d") if task_to_archive.due_date else None,
+                task_to_archive.importance.value,
+                task_to_archive.urgency.value,
+                task_to_archive.fitness.value,
+                task_to_archive.status.value,
+                datetime.now().strftime("%Y-%m-%d"),
+                self.current_user_id
+            ))
+
+            # Delete the task from the main tasks table
+            cursor.execute('DELETE FROM tasks WHERE title = ? AND user_id = ?',
+                           (task_to_archive.title, self.current_user_id))
+
+            conn.commit()
+            conn.close()
+
+            # Remove the task from the task list and UI
+            self.tasks.remove(task_to_archive)
+            if self.selected_task:
+                self.venn_canvas.delete(self.selected_task["text_id"])  # Remove from Venn diagram
+                self.selected_task = None  # Clear selection
+            else:
+                self.low_listbox.delete(selected_index)  # Remove from "LOW" listbox
+
+            messagebox.showinfo("Success", f"Task '{task_to_archive.title}' has been archived.")
+
+        except sqlite3.Error as e:
+            messagebox.showerror("Database Error", f"Error archiving task: {e}")
 
         # Refresh the task display
         self.update_task_listbox()
