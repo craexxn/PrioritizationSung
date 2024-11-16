@@ -5,7 +5,7 @@ from tkinter import messagebox
 
 class SettingsWindow(tk.Toplevel):
     """
-    A window for managing user settings, including notification preferences and auto-archive settings.
+    A window for managing user settings, including notification preferences, auto-archive, and auto-delete settings.
     """
     def __init__(self, controller):
         super().__init__(controller.root)
@@ -13,7 +13,7 @@ class SettingsWindow(tk.Toplevel):
         self.db_path = controller.db_path  # Path to the database
         self.user_id = controller.current_user_id  # Get the currently logged-in user
         self.title("Settings")
-        self.geometry("300x300")
+        self.geometry("300x400")
         self.create_widgets()
         self.load_settings()
 
@@ -35,6 +35,16 @@ class SettingsWindow(tk.Toplevel):
         self.auto_archive_var = tk.BooleanVar()
         tk.Checkbutton(self, text="Auto-archive completed tasks", variable=self.auto_archive_var).pack(pady=5)
 
+        # Auto-delete setting
+        self.auto_delete_var = tk.BooleanVar()
+        tk.Checkbutton(self, text="Auto-delete archived tasks", variable=self.auto_delete_var).pack(pady=5)
+
+        # Auto-delete interval setting
+        tk.Label(self, text="Auto-delete interval (days):").pack(pady=5)
+        self.auto_delete_interval_var = tk.IntVar()
+        self.auto_delete_interval_entry = tk.Entry(self, textvariable=self.auto_delete_interval_var)
+        self.auto_delete_interval_entry.pack(pady=5)
+
         # Save settings button
         tk.Button(self, text="Save Settings", command=self.save_settings).pack(pady=10)
 
@@ -47,23 +57,30 @@ class SettingsWindow(tk.Toplevel):
             cursor = conn.cursor()
 
             # Fetch settings for the current user
-            cursor.execute('SELECT notification_interval, auto_archive, notifications_enabled FROM settings WHERE user_id = ?', (self.user_id,))
+            cursor.execute('''
+                SELECT notification_interval, auto_archive, auto_delete, auto_delete_interval, notifications_enabled
+                FROM settings WHERE user_id = ?
+            ''', (self.user_id,))
             row = cursor.fetchone()
 
             # Set default values if no settings exist for the user
             if row:
                 self.notification_interval_var.set(row[0] if row[0] is not None else 1)
                 self.auto_archive_var.set(bool(row[1]) if row[1] is not None else False)
-                self.notifications_enabled_var.set(bool(row[2]) if row[2] is not None else True)
+                self.auto_delete_var.set(bool(row[2]) if row[2] is not None else False)
+                self.auto_delete_interval_var.set(row[3] if row[3] is not None else 30)
+                self.notifications_enabled_var.set(bool(row[4]) if row[4] is not None else True)
             else:
                 # Insert default settings for the user if no record exists
                 cursor.execute('''
-                    INSERT INTO settings (user_id, notification_interval, auto_archive, notifications_enabled)
-                    VALUES (?, ?, ?, ?)
-                ''', (self.user_id, 1, 0, 1))
+                    INSERT INTO settings (user_id, notification_interval, auto_archive, auto_delete, auto_delete_interval, notifications_enabled)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                ''', (self.user_id, 1, 0, 0, 30, 1))
                 conn.commit()
                 self.notification_interval_var.set(1)
                 self.auto_archive_var.set(False)
+                self.auto_delete_var.set(False)
+                self.auto_delete_interval_var.set(30)
                 self.notifications_enabled_var.set(True)
 
             conn.close()
@@ -77,6 +94,8 @@ class SettingsWindow(tk.Toplevel):
         notification_interval = self.notification_interval_var.get()
         notifications_enabled = self.notifications_enabled_var.get()
         auto_archive = self.auto_archive_var.get()
+        auto_delete = self.auto_delete_var.get()
+        auto_delete_interval = self.auto_delete_interval_var.get()
 
         try:
             conn = sqlite3.connect(self.db_path)
@@ -85,9 +104,9 @@ class SettingsWindow(tk.Toplevel):
             # Update settings for the current user
             cursor.execute('''
                 UPDATE settings
-                SET notification_interval = ?, auto_archive = ?, notifications_enabled = ?
+                SET notification_interval = ?, auto_archive = ?, auto_delete = ?, auto_delete_interval = ?, notifications_enabled = ?
                 WHERE user_id = ?
-            ''', (notification_interval, int(auto_archive), int(notifications_enabled), self.user_id))
+            ''', (notification_interval, int(auto_archive), int(auto_delete), auto_delete_interval, int(notifications_enabled), self.user_id))
             conn.commit()
             conn.close()
 
