@@ -9,6 +9,7 @@ from datetime import datetime
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../Task')))
 
 from task import Task, Priority, Status
+from task_editor import TaskEditor
 
 
 class ArchiveViewer(tk.Toplevel):
@@ -220,9 +221,23 @@ class ArchiveViewer(tk.Toplevel):
             conn.commit()
             conn.close()
 
+            # Remove the task from the archived tasks list and UI
             self.archived_tasks.pop(selected_index[0])
             self.archived_listbox.delete(selected_index)
-            messagebox.showinfo("Success", f"Task '{selected_task.title}' has been reactivated.")
+
+            # Open the reactivated task in the TaskEditor
+            reactivated_task = Task(
+                title=selected_task.title,
+                description=selected_task.description,
+                due_date=selected_task.due_date,
+                importance=selected_task.importance,
+                urgency=selected_task.urgency,
+                fitness=selected_task.fitness,
+                status=Status.OPEN
+            )
+            messagebox.showinfo("Success", f"Task '{reactivated_task.title}' has been reactivated.")
+            TaskEditor(self.controller, "Edit Task", task=reactivated_task)
+
             self.controller.load_tasks()  # Refresh the main task list
         except sqlite3.Error as e:
             messagebox.showerror("Database Error", f"Error reactivating task: {e}")
