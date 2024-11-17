@@ -245,7 +245,7 @@ class GUIController:
     def update_task_venn_diagram(self):
         """
         Updates the Venn diagram display with the current tasks.
-        Ensures tasks are correctly displayed based on their priorities without duplicates.
+        Ensures tasks are correctly displayed based on their priorities without overlapping.
         """
         print("Updating Venn Diagram...")
         self.venn_canvas.delete("task_text")
@@ -254,57 +254,71 @@ class GUIController:
         # Define the center of the Venn Diagram
         venn_center_x, venn_center_y = 512, 512
         medium_radius = 375
-        high_high_high_radius = 75  # Radius for the central "Do Now" region
+        hhh_radius = 75  # Radius for "Do Now" circular placement
+        hhh_angle_step = 30  # Angle step for placing tasks in "HHH"
 
         # Centers for each priority circle
         importance_center = (venn_center_x - medium_radius, venn_center_y)
         urgency_center = (venn_center_x, venn_center_y + medium_radius)
         fitness_center = (venn_center_x + medium_radius, venn_center_y)
 
-        # Offset the "Do Now" region by 100 on the y-axis for HHH tasks
-        do_now_center_y = venn_center_y + 100
+        # Offset for spreading tasks within the same priority region
+        offset_step = 15
 
-        # Counter for arranging multiple tasks in the center region
-        high_high_high_counter = 0
-        high_high_high_angle_step = 45
+        # Track task counters to manage placement offsets
+        placement_offsets = {
+            "HHH": 0,  # Angle counter for circular placement
+            "HH": 0,
+            "HF": 0,
+            "UF": 0,
+            "I": 0,
+            "U": 0,
+            "F": 0
+        }
 
         for task in self.tasks:
-            print(
-                f"Rendering task: {task.title} with priority ({task.importance}, {task.urgency}, {task.fitness})")  # Debug
+            print(f"Rendering task: {task.title} with priority ({task.importance}, {task.urgency}, {task.fitness})")
+
             if task.importance == Priority.HIGH and task.urgency == Priority.HIGH and task.fitness == Priority.HIGH:
-                # Position around the "Do Now" label in a circular layout
-                angle_rad = math.radians(high_high_high_angle_step * high_high_high_counter)
-                x = venn_center_x + high_high_high_radius * math.cos(angle_rad)
-                y = do_now_center_y + high_high_high_radius * math.sin(angle_rad)
-                high_high_high_counter += 1
+                # "Do Now" central placement in a circular layout
+                angle_rad = math.radians(hhh_angle_step * placement_offsets["HHH"])
+                x = venn_center_x + hhh_radius * math.cos(angle_rad)
+                y = venn_center_y + hhh_radius * math.sin(angle_rad) + 75
+                placement_offsets["HHH"] += 1.5
             elif task.importance == Priority.HIGH and task.urgency == Priority.HIGH:
-                # Position in the overlap region between Importance and Urgency
+                # Overlap region between Importance and Urgency
                 x = (importance_center[0] + urgency_center[0]) / 2
-                y = (importance_center[1] + urgency_center[1]) / 2
+                y = (importance_center[1] + urgency_center[1]) / 2 + placement_offsets["HH"]
+                placement_offsets["HH"] += offset_step
             elif task.importance == Priority.HIGH and task.fitness == Priority.HIGH:
-                # Position in the overlap region between Importance and Fitness
+                # Overlap region between Importance and Fitness
                 x = (importance_center[0] + fitness_center[0]) / 2
-                y = (importance_center[1] + fitness_center[1]) / 2.3
+                y = (importance_center[1] + fitness_center[1]) / 2 + placement_offsets["HF"]
+                placement_offsets["HF"] += offset_step
             elif task.urgency == Priority.HIGH and task.fitness == Priority.HIGH:
-                # Position in the overlap region between Urgency and Fitness
+                # Overlap region between Urgency and Fitness
                 x = (urgency_center[0] + fitness_center[0]) / 2
-                y = (urgency_center[1] + fitness_center[1]) / 2
+                y = (urgency_center[1] + fitness_center[1]) / 2 + placement_offsets["UF"]
+                placement_offsets["UF"] += offset_step
             elif task.importance == Priority.HIGH:
-                # Position at the edge of the Importance circle
-                x = importance_center[0] * 1.4
-                y = importance_center[1] / 1.4
+                # Importance circle
+                x = importance_center[0]
+                y = importance_center[1] + placement_offsets["I"]
+                placement_offsets["I"] += offset_step
             elif task.urgency == Priority.HIGH:
-                # Position at the edge of the Urgency circle
+                # Urgency circle
                 x = urgency_center[0]
-                y = urgency_center[1]
+                y = urgency_center[1] + placement_offsets["U"]
+                placement_offsets["U"] += offset_step
             elif task.fitness == Priority.HIGH:
-                # Position at the edge of the Fitness circle
-                x = fitness_center[0] / 1.1
-                y = fitness_center[1] / 1.4
+                # Fitness circle
+                x = fitness_center[0]
+                y = fitness_center[1] + placement_offsets["F"]
+                placement_offsets["F"] += offset_step
             else:
-                # For tasks with all LOWs, add to the "LOW Priority Tasks" list
+                # LOW priority tasks go into the listbox
                 if task.title not in self.low_listbox.get(0, tk.END):
-                    self.low_listbox.insert(tk.END, task.title)  # Füge nur einzigartige Tasks hinzu
+                    self.low_listbox.insert(tk.END, task.title)
                 continue
 
             # Display the task title at the calculated position
