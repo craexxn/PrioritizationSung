@@ -2,8 +2,7 @@ import sqlite3
 
 def initialize_database():
     """
-    Initializes the SQLite database and creates necessary tables if they do not exist.
-    Ensures all necessary columns and tables are created, including user-specific settings.
+    Initializes the SQLite database.
     """
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
@@ -53,18 +52,21 @@ def initialize_database():
 
     # Create the settings table if it does not exist
     cursor.execute('''
-           CREATE TABLE IF NOT EXISTS settings (
-               id INTEGER PRIMARY KEY AUTOINCREMENT,
-               user_id INTEGER UNIQUE NOT NULL,
-               notification_interval INTEGER DEFAULT 1,
-               auto_archive INTEGER DEFAULT 0,
-               auto_delete INTEGER DEFAULT 0,
-               auto_delete_interval INTEGER DEFAULT 30, -- New column for auto-delete interval
-               notifications_enabled INTEGER DEFAULT 1,
-               default_priorities TEXT,
-               FOREIGN KEY(user_id) REFERENCES users(id)
-           )
-       ''')
+        CREATE TABLE IF NOT EXISTS settings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER UNIQUE NOT NULL,
+            notification_interval INTEGER DEFAULT 1,
+            auto_archive INTEGER DEFAULT 0,
+            auto_delete INTEGER DEFAULT 0,
+            auto_delete_interval INTEGER DEFAULT 30,
+            notifications_enabled INTEGER DEFAULT 1,
+            default_importance TEXT DEFAULT 'None',
+            default_urgency TEXT DEFAULT 'None',
+            default_fitness TEXT DEFAULT 'None',
+            FOREIGN KEY(user_id) REFERENCES users(id)
+        )
+    ''')
+
 
     # Commit changes and close the connection
     conn.commit()

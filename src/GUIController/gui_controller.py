@@ -369,7 +369,47 @@ class GUIController:
             self.selected_task_index = None
 
     def add_task(self):
-        TaskEditor(self, "Add New Task")
+        """
+        Opens the TaskEditor with default priorities for adding a new task.
+        """
+        try:
+            # Fetch default priorities from the settings table for the current user
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT default_priorities 
+                FROM settings 
+                WHERE user_id = ?
+            ''', (self.current_user_id,))
+            row = cursor.fetchone()
+            conn.close()
+
+            # Parse default priorities if they exist
+            if row and row[0]:
+                default_priorities = eval(row[0])  # Convert string to dictionary
+                default_importance = Priority[default_priorities.get("importance", "LOW").upper()]
+                default_urgency = Priority[default_priorities.get("urgency", "LOW").upper()]
+                default_fitness = Priority[default_priorities.get("fitness", "LOW").upper()]
+            else:
+                # Default values if no settings exist
+                default_importance = Priority.LOW
+                default_urgency = Priority.LOW
+                default_fitness = Priority.LOW
+
+        except sqlite3.Error as e:
+            messagebox.showerror("Database Error", f"Error fetching default priorities: {e}")
+            default_importance = Priority.LOW
+            default_urgency = Priority.LOW
+            default_fitness = Priority.LOW
+
+        # Open the TaskEditor with default priorities
+        TaskEditor(
+            self,
+            "Add New Task",
+            default_importance=default_importance,
+            default_urgency=default_urgency,
+            default_fitness=default_fitness
+        )
 
     def edit_task(self):
         if self.selected_task_index is None:

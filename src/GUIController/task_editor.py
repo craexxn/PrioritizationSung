@@ -16,7 +16,8 @@ class TaskEditor(tk.Toplevel):
     Window for adding, editing, or updating a task's status.
     """
 
-    def __init__(self, controller, title, task=None, index=None):
+    def __init__(self, controller, title, task=None, index=None, default_importance=None, default_urgency=None,
+                 default_fitness=None):
         super().__init__(controller.root)
         self.controller = controller
         self.task = task
@@ -46,29 +47,38 @@ class TaskEditor(tk.Toplevel):
         # Dropdowns for priority levels
         tk.Label(self, text="Importance:").pack(pady=5)
         self.importance_var = tk.StringVar(value="Select Priority")
-        self.importance_combo = ttk.Combobox(self, textvariable=self.importance_var, values=[p.value for p in Priority], state="readonly")
+        self.importance_combo = ttk.Combobox(self, textvariable=self.importance_var, values=[p.value for p in Priority],
+                                             state="readonly")
         self.importance_combo.pack(pady=5)
         if task:
             self.importance_combo.set(task.importance.value)
+        elif default_importance:
+            self.importance_combo.set(default_importance.value)
 
         tk.Label(self, text="Urgency:").pack(pady=5)
         self.urgency_var = tk.StringVar(value="Select Priority")
-        self.urgency_combo = ttk.Combobox(self, textvariable=self.urgency_var, values=[p.value for p in Priority], state="readonly")
+        self.urgency_combo = ttk.Combobox(self, textvariable=self.urgency_var, values=[p.value for p in Priority],
+                                          state="readonly")
         self.urgency_combo.pack(pady=5)
         if task:
             self.urgency_combo.set(task.urgency.value)
+        elif default_urgency:
+            self.urgency_combo.set(default_urgency.value)
 
         tk.Label(self, text="Fitness:").pack(pady=5)
         self.fitness_var = tk.StringVar(value="Select Priority")
-        self.fitness_combo = ttk.Combobox(self, textvariable=self.fitness_var, values=[p.value for p in Priority], state="readonly")
+        self.fitness_combo = ttk.Combobox(self, textvariable=self.fitness_var, values=[p.value for p in Priority],
+                                          state="readonly")
         self.fitness_combo.pack(pady=5)
         if task:
             self.fitness_combo.set(task.fitness.value)
+        elif default_fitness:
+            self.fitness_combo.set(default_fitness.value)
 
         # Buttons
         tk.Button(self, text="Save", command=self.save_task).pack(pady=10)
         if self.task and self.task.status == Status.COMPLETED:
-            tk.Button(self, text="Mark as Open", command=self.mark_task_open).pack(pady=5)  # New Button
+            tk.Button(self, text="Mark as Open", command=self.mark_task_open).pack(pady=5)
 
     def save_task(self):
         """
