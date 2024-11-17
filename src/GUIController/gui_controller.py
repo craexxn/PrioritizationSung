@@ -24,12 +24,15 @@ from settings_window import SettingsWindow
 from archive_viewer import ArchiveViewer
 from login_window import LoginWindow
 from filter_controller import FilterController
+from drag_drop import DragDropHandler
+
 
 
 class GUIController:
     """
     Controls the interaction between the GUI and the backend components.
     """
+
     def __init__(self, root):
         self.root = root
         self.root.title("Sung Task Manager")
@@ -38,12 +41,12 @@ class GUIController:
         self.current_user = None  # Stores the logged-in user's name
         self.db_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../Database/database.db'))
 
-        # Start the login window at the beginning of the session
         print("Opening LoginWindow")
         self.login_window = LoginWindow(self)
 
-        # Initialize the task list here
-        self.tasks = []  # Initialize the tasks list
+        # Initialize the task list and canvas mappings
+        self.tasks = []  # Holds all tasks
+        self.task_elements = {}  # Maps task titles to their canvas elements for drag-and-drop
 
         # Initialize managers
         print("Initializing managers")
@@ -51,20 +54,16 @@ class GUIController:
         self.archive_manager = ArchiveManager(db_path=self.db_path)
         self.notification_manager = NotificationManager(self.settings_manager)
 
-        # Track the currently selected task for editing
-        self.selected_task = None  # New attribute to keep track of the selected task
+        self.drag_drop_handler = None  # Drag-and-drop handler, initialized later
 
-        # Create GUI elements
+        self.selected_task = None  # Tracks selected task for editing
+
         self.create_widgets()
 
-        # Load tasks if user is logged in
         if self.current_user:
             self.load_tasks()
 
-        # Schedule notifications
         self.schedule_notifications()
-
-        # Initialize the filter controller for task search and filtering functionality
         self.filter_controller = FilterController(self)
 
     def create_widgets(self):
@@ -140,6 +139,172 @@ class GUIController:
         # Text labels for Do Now section, adjusted to match new circle positions
         self.venn_canvas.create_text(center_x, center_y + 100, text="Do Now", fill="black",
                                      font=("Helvetica", 16, "bold"))
+
+    def load_tasks(self, filters=None):
+        """
+        Loads tasks from the database based on the given filters.
+        """
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        self.tasks.clear()
+        print(f"Loading tasks for user {self.current_user_id}")  # Debug print
+
+        # Base query
+        query = '''
+               SELECT title, description, due_date, importance, urgency, fitness, status 
+               FROM tasks 
+               WHERE user_id = ?
+           '''
+        params = [self.current_user_id]
+
+        # Apply filters if any
+        if filters:
+            if 'importance' in filters:
+                query += ' AND UPPER(importance) = ?'
+                params.append(filters['importance'].upper())
+            if 'urgency' in filters:
+                query += ' AND UPPER(urgency) = ?'
+                params.append(filters['urgency'].upper())
+            if 'fitness' in filters:
+                query += ' AND UPPER(fitness) = ?'
+                params.append(filters['fitness'].upper())
+            if 'search' in filters:
+                query += ' AND title LIKE ?'
+                params.append(f"%{filters['search']}%")
+            if 'status' in filters:
+                query += ' AND UPPER(status) = ?'
+                params.append(filters['status'].upper())
+            if 'due_date' in filters:
+                query += ' AND due_date <= ?'
+                params.append(filters['due_date'].strftime("%Y-%m-%d"))
+
+        print(f"Executing query: {query} with params: {params}")  # Debug print
+        cursor.execute(query, params)
+        rows = cursor.fetchall()
+
+        for row in rows:
+            title, description, due_date_str, importance_str, urgency_str, fitness_str, status_str = row
+            due_date = datetime.strptime(due_date_str, '%Y-%m-%d').date() if due_date_str else None
+
+            # Convert database values to Priority Enum
+            importance = Priority[importance_str.upper()]
+            urgency = Priority[urgency_str.upper()]
+            fitness = Priority[fitness_str.upper()]
+
+            # Default to OPEN if status is None
+            status = Status[status_str.upper()] if status_str else Status.OPEN
+
+            task = Task(
+                title=title,
+                description=description,
+                due_date=due_date,
+                importance=importance,
+                urgency=urgency,
+                fitness=fitness,
+                status=status
+            )
+            self.tasks.append(task)
+            print(f"Loaded task: {task.title}, Status: {task.status}")  # Debug print
+
+        conn.close()
+        self.update_task_venn_diagram()
+
+    '''
+    def initialize_priority_combinations(self):
+        """
+        Initializes tasks with all possible priority combinations (HHH, HHL, HLH, etc.).
+        """
+        print("Initializing priority combinations...")  # Debug-Ausgabe
+        combinations = [
+            ("HHH", Priority.HIGH, Priority.HIGH, Priority.HIGH),
+            ("HHL", Priority.HIGH, Priority.HIGH, Priority.LOW),
+            ("HLH", Priority.HIGH, Priority.LOW, Priority.HIGH),
+            ("LHH", Priority.LOW, Priority.HIGH, Priority.HIGH),
+            ("LLH", Priority.LOW, Priority.LOW, Priority.HIGH),
+            ("LHL", Priority.LOW, Priority.HIGH, Priority.LOW),
+            ("HLL", Priority.HIGH, Priority.LOW, Priority.LOW),
+            ("LLL", Priority.LOW, Priority.LOW, Priority.LOW),
+        ]
+
+        self.tasks.clear()  # Überschreibe keine gespeicherten Tasks!
+
+        for name, importance, urgency, fitness in combinations:
+            task = Task(
+                title=name,
+                description=f"Task with priority {name}",
+                due_date=None,  # Kein Fälligkeitsdatum
+                importance=importance,
+                urgency=urgency,
+                fitness=fitness,
+                status=Status.OPEN
+            )
+            self.tasks.append(task)  # Debugging-Daten hinzufügen
+
+        self.update_task_venn_diagram()
+        '''
+
+    def update_task_venn_diagram(self):
+        """
+        Updates the Venn diagram with current tasks and initializes drag-and-drop bindings.
+        """
+        print("Updating Venn Diagram...")
+        self.venn_canvas.delete("task_text")
+        self.low_listbox.delete(0, tk.END)
+        self.task_elements.clear()  # Reset task mapping
+
+        if not self.drag_drop_handler:
+            self.drag_drop_handler = DragDropHandler(
+                self.venn_canvas,
+                self.task_elements,
+                self.update_task_venn_diagram  # Callback for refresh after drop
+            )
+
+        # Define the center of the Venn Diagram
+        venn_center_x, venn_center_y = 512, 512
+        medium_radius = 375
+        hhh_radius = 75  # Radius for "Do Now" circular placement
+        hhh_angle_step = 30  # Angle step for placing tasks in "HHH"
+
+        # Centers for priority areas
+        importance_center = (venn_center_x - medium_radius, venn_center_y)
+        urgency_center = (venn_center_x, venn_center_y + medium_radius)
+        fitness_center = (venn_center_x + medium_radius, venn_center_y)
+
+        offset_step = 15  # Offset for task placement
+        placement_offsets = {"HHH": 0, "HH": 0, "HF": 0, "UF": 0, "I": 0, "U": 0, "F": 0}
+
+        for task in self.tasks:
+            print(f"Rendering task: {task.title} with priority ({task.importance}, {task.urgency}, {task.fitness})")
+            # Calculate task placement (logic unchanged)
+            # Example for "HHH":
+            if task.importance == Priority.HIGH and task.urgency == Priority.HIGH and task.fitness == Priority.HIGH:
+                angle_rad = math.radians(hhh_angle_step * placement_offsets["HHH"])
+                x = venn_center_x + hhh_radius * math.cos(angle_rad)
+                y = venn_center_y + hhh_radius * math.sin(angle_rad) + 75
+                placement_offsets["HHH"] += 1.5
+            elif task.importance == Priority.HIGH and task.urgency == Priority.HIGH:
+                x = (importance_center[0] + urgency_center[0]) / 2
+                y = (importance_center[1] + urgency_center[1]) / 2 + placement_offsets["HH"]
+                placement_offsets["HH"] += offset_step
+            # Add other placement logic here...
+
+            # Add LOW priority to the listbox
+            else:
+                if task.title not in self.low_listbox.get(0, tk.END):
+                    self.low_listbox.insert(tk.END, task.title)
+                continue
+
+            # Create text element and map to task
+            text_id = self.venn_canvas.create_text(x, y, text=task.title, tags="task_text")
+            self.venn_canvas.tag_bind(
+                text_id, "<Button-1>", lambda e, tid=text_id: self.drag_drop_handler.start_drag(e, tid)
+            )
+            self.venn_canvas.tag_bind(
+                text_id, "<B1-Motion>", lambda e, tid=text_id: self.drag_drop_handler.drag_task(e, tid)
+            )
+            self.venn_canvas.tag_bind(
+                text_id, "<ButtonRelease-1>", lambda e, tid=text_id: self.drag_drop_handler.drop_task(e, tid)
+            )
 
     def load_tasks(self, filters=None):
         """
@@ -383,7 +548,9 @@ class GUIController:
         else:
             self.selected_task_index = None
 
-    import json  # Verwende JSON für sichere Dekodierung
+        # Ensure the Venn diagram is updated and visible
+        self.update_task_venn_diagram()
+
 
     def add_task(self):
         """
