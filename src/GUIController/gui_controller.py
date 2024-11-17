@@ -443,28 +443,51 @@ class GUIController:
     def delete_task(self):
         """
         Deletes the selected task from the list and updates the diagram and listbox accordingly.
+        Displays a confirmation dialog before deleting the task.
         """
-        # If a task is selected in the Venn diagram
+        # Check if a task is selected in the Venn diagram or LOW priority listbox
+        task_to_delete = None
         if self.selected_task:
             task_to_delete = self.selected_task["task"]
-            self.tasks.remove(task_to_delete)
-            self.venn_canvas.delete(self.selected_task["text_id"])  # Remove the element from the diagram
-            self.selected_task = None  # Reset the selected task
-
-        # If a task is selected in the "LOW" listbox
         elif self.low_listbox.curselection():
             selected_index = self.low_listbox.curselection()[0]
             selected_task_title = self.low_listbox.get(selected_index)
             task_to_delete = next((task for task in self.tasks if task.title == selected_task_title), None)
-            if task_to_delete:
-                self.tasks.remove(task_to_delete)
-                self.low_listbox.delete(selected_index)  # Remove the element from the "LOW" listbox
 
-        else:
+        if not task_to_delete:
             messagebox.showwarning("No Selection", "Please select a task to delete.")
             return
 
-        self.update_task_listbox()  # Refresh the diagram and list
+        # Ask for confirmation before deleting
+        confirm = messagebox.askyesno("Confirm Delete",
+                                      f"Are you sure you want to delete the task '{task_to_delete.title}'?")
+        if not confirm:
+            return  # Do nothing if the user selects "No"
+
+        try:
+            # Remove the task from the database
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            cursor.execute('DELETE FROM tasks WHERE title = ? AND user_id = ?',
+                           (task_to_delete.title, self.current_user_id))
+            conn.commit()
+            conn.close()
+
+            # Remove the task from the UI
+            self.tasks.remove(task_to_delete)
+            if self.selected_task:
+                self.venn_canvas.delete(self.selected_task["text_id"])  # Remove from Venn diagram
+                self.selected_task = None  # Clear selection
+            else:
+                self.low_listbox.delete(selected_index)  # Remove from "LOW" listbox
+
+            messagebox.showinfo("Task Deleted", f"Task '{task_to_delete.title}' has been deleted successfully.")
+
+        except sqlite3.Error as e:
+            messagebox.showerror("Database Error", f"Error deleting task: {e}")
+
+        # Refresh the task display
+        self.update_task_listbox()
 
     def mark_task_completed(self):
         """
