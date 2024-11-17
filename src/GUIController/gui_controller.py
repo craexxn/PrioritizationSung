@@ -5,6 +5,7 @@ import sqlite3
 import tkinter as tk
 from tkinter import messagebox, Canvas
 from datetime import datetime
+import json
 
 # Import paths for other modules
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../Task')))
@@ -246,9 +247,9 @@ class GUIController:
         Updates the Venn diagram display with the current tasks.
         Ensures tasks are correctly displayed based on their priorities without duplicates.
         """
-        print("Updating Venn Diagram...")  # Debug-Ausgabe
-        self.venn_canvas.delete("task_text")  # Entferne alte Task-Darstellungen
-        self.low_listbox.delete(0, tk.END)  # Entferne alte LOW-Prioritätseinträge
+        print("Updating Venn Diagram...")
+        self.venn_canvas.delete("task_text")
+        self.low_listbox.delete(0, tk.END)
 
         # Define the center of the Venn Diagram
         venn_center_x, venn_center_y = 512, 512
@@ -368,41 +369,48 @@ class GUIController:
         else:
             self.selected_task_index = None
 
+    import json  # Verwende JSON für sichere Dekodierung
+
     def add_task(self):
         """
         Opens the TaskEditor with default priorities for adding a new task.
         """
         try:
-            # Fetch default priorities from the settings table for the current user
+            # Fetch user-specific default priorities from the settings table
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
             cursor.execute('''
-                SELECT default_priorities 
+                SELECT default_importance, default_urgency, default_fitness 
                 FROM settings 
                 WHERE user_id = ?
             ''', (self.current_user_id,))
             row = cursor.fetchone()
             conn.close()
 
-            # Parse default priorities if they exist
-            if row and row[0]:
-                default_priorities = eval(row[0])  # Convert string to dictionary
-                default_importance = Priority[default_priorities.get("importance", "LOW").upper()]
-                default_urgency = Priority[default_priorities.get("urgency", "LOW").upper()]
-                default_fitness = Priority[default_priorities.get("fitness", "LOW").upper()]
+            print(f"Database row fetched: {row}")  # Debug output
+
+            # Set priorities based on the user's settings or fallback to defaults
+            if row:
+                default_importance = Priority[row[0].upper()] if row[0] else Priority.LOW
+                default_urgency = Priority[row[1].upper()] if row[1] else Priority.LOW
+                default_fitness = Priority[row[2].upper()] if row[2] else Priority.LOW
             else:
-                # Default values if no settings exist
+                # Fallback to defaults if no row exists
                 default_importance = Priority.LOW
                 default_urgency = Priority.LOW
                 default_fitness = Priority.LOW
 
+            print(
+                f"Default values: Importance={default_importance}, Urgency={default_urgency}, Fitness={default_fitness}")
+
         except sqlite3.Error as e:
+            print(f"Database Error: {e}")  # Debug output
             messagebox.showerror("Database Error", f"Error fetching default priorities: {e}")
             default_importance = Priority.LOW
             default_urgency = Priority.LOW
             default_fitness = Priority.LOW
 
-        # Open the TaskEditor with default priorities
+        # Open the TaskEditor with user-specific default priorities
         TaskEditor(
             self,
             "Add New Task",
