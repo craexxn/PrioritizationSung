@@ -1,12 +1,18 @@
+import os
+import sys
 import math
+import sqlite3
 
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../Task')))
+
+from task import Priority
 
 class DragDropHandler:
     """
     Handles drag-and-drop functionality for tasks within the Venn diagram.
     """
 
-    def __init__(self, canvas, task_elements, update_callback):
+    def __init__(self, canvas, task_elements, update_callback, db_path):
         print("DragDropHandler initialized with canvas: {canvas}")
         """
         Initializes the DragDropHandler.
@@ -18,7 +24,8 @@ class DragDropHandler:
         self.canvas = canvas
         self.task_elements = task_elements
         self.update_callback = update_callback
-        self.dragging_task_id = None  # The ID of the currently dragged task
+        self.db_path = db_path  # Store database path
+        self.dragging_task_id = None
         self.start_x = None
         self.start_y = None
 
@@ -73,8 +80,21 @@ class DragDropHandler:
         task_title = next((title for title, tid in self.task_elements.items() if tid == task_id), None)
         if task_title:
             print(f"Updating task '{task_title}' to area: {new_priority_area}")
-            # Inform GUIController to update the task's priority
-            # self.update_callback(new_priority_area)
+            # Find the task in the database and update its priority
+            try:
+                conn = sqlite3.connect(self.db_path)  # Ensure db_path is passed to DragDropHandler
+                cursor = conn.cursor()
+                cursor.execute('''
+                    UPDATE tasks
+                    SET importance = ?, urgency = ?, fitness = ?
+                    WHERE title = ?
+                ''', (new_priority_area[0].name, new_priority_area[1].name, new_priority_area[2].name, task_title))
+                conn.commit()
+                print(f"Task '{task_title}' updated in database.")
+            except sqlite3.Error as e:
+                print(f"Error updating task in database: {e}")
+            finally:
+                conn.close()
 
         # Refresh the Venn diagram
         self.update_callback()
@@ -90,7 +110,7 @@ class DragDropHandler:
 
         :param x: The x-coordinate of the drop position.
         :param y: The y-coordinate of the drop position.
-        :return: A tuple representing the new priority (importance, urgency, fitness).
+        :return: A tuple representing the new priority (Priority.IMPORTANCE, Priority.URGENCY, Priority.FITNESS).
         """
         # Center of the Venn diagram
         center_x, center_y = 512, 512
@@ -105,15 +125,19 @@ class DragDropHandler:
         threshold = medium_radius
 
         # Determine priority based on the closest circle
-        importance = urgency = fitness = "LOW"
+        importance = Priority.LOW
+        urgency = Priority.LOW
+        fitness = Priority.LOW
+
         if distance_to_importance < threshold:
-            importance = "HIGH"
+            importance = Priority.HIGH
         if distance_to_urgency < threshold:
-            urgency = "HIGH"
+            urgency = Priority.HIGH
         if distance_to_fitness < threshold:
-            fitness = "HIGH"
+            fitness = Priority.HIGH
 
         return importance, urgency, fitness
+
 
 def get_priority_areas(self):
     """
@@ -162,19 +186,3 @@ def is_point_in_circle(self, x, y, center, radius):
     """
     return (x - center[0]) ** 2 + (y - center[1]) ** 2 <= radius ** 2
 
-def get_priority_from_position(self, x, y):
-    """
-    Determines the priority based on the (x, y) position of a dropped task.
-
-    :param x: The x-coordinate of the drop position.
-    :param y: The y-coordinate of the drop position.
-    :return: The priority region name (e.g., "HHH", "Importance", "LowPriority").
-    """
-    areas = self.get_priority_areas()
-
-    for area_name, area in areas.items():
-        if self.is_point_in_circle(x, y, area["center"], area["radius"]):
-            return area_name
-
-    # Default if no match
-    return "LowPriority"

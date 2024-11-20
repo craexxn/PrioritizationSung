@@ -5,7 +5,6 @@ import sqlite3
 import tkinter as tk
 from tkinter import messagebox, Canvas
 from datetime import datetime
-from functools import partial
 
 
 # Import paths for other modules
@@ -141,76 +140,6 @@ class GUIController:
         self.venn_canvas.create_text(center_x, center_y + 100, text="Do Now", fill="black",
                                      font=("Helvetica", 16, "bold"))
 
-    def load_tasks(self, filters=None):
-        """
-        Loads tasks from the database based on the given filters.
-        """
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        self.tasks.clear()
-        print(f"Loading tasks for user {self.current_user_id}")  # Debug print
-
-        # Base query
-        query = '''
-               SELECT title, description, due_date, importance, urgency, fitness, status 
-               FROM tasks 
-               WHERE user_id = ?
-           '''
-        params = [self.current_user_id]
-
-        # Apply filters if any
-        if filters:
-            if 'importance' in filters:
-                query += ' AND UPPER(importance) = ?'
-                params.append(filters['importance'].upper())
-            if 'urgency' in filters:
-                query += ' AND UPPER(urgency) = ?'
-                params.append(filters['urgency'].upper())
-            if 'fitness' in filters:
-                query += ' AND UPPER(fitness) = ?'
-                params.append(filters['fitness'].upper())
-            if 'search' in filters:
-                query += ' AND title LIKE ?'
-                params.append(f"%{filters['search']}%")
-            if 'status' in filters:
-                query += ' AND UPPER(status) = ?'
-                params.append(filters['status'].upper())
-            if 'due_date' in filters:
-                query += ' AND due_date <= ?'
-                params.append(filters['due_date'].strftime("%Y-%m-%d"))
-
-        print(f"Executing query: {query} with params: {params}")  # Debug print
-        cursor.execute(query, params)
-        rows = cursor.fetchall()
-
-        for row in rows:
-            title, description, due_date_str, importance_str, urgency_str, fitness_str, status_str = row
-            due_date = datetime.strptime(due_date_str, '%Y-%m-%d').date() if due_date_str else None
-
-            # Convert database values to Priority Enum
-            importance = Priority[importance_str.upper()]
-            urgency = Priority[urgency_str.upper()]
-            fitness = Priority[fitness_str.upper()]
-
-            # Default to OPEN if status is None
-            status = Status[status_str.upper()] if status_str else Status.OPEN
-
-            task = Task(
-                title=title,
-                description=description,
-                due_date=due_date,
-                importance=importance,
-                urgency=urgency,
-                fitness=fitness,
-                status=status
-            )
-            self.tasks.append(task)
-            print(f"Loaded task: {task.title}, Status: {task.status}")  # Debug print
-
-        conn.close()
-        self.update_task_venn_diagram()
-
-
     def update_task_venn_diagram(self):
         """
         Updates the Venn diagram with current tasks and initializes drag-and-drop bindings.
@@ -222,13 +151,12 @@ class GUIController:
         self.task_elements.clear()  # Reset task mapping
 
         # Initialize DragDropHandler if not already initialized
-        if not self.drag_drop_handler:
-            print("Reinitializing DragDropHandler...")
-            self.drag_drop_handler = DragDropHandler(
-                self.venn_canvas,
-                self.task_elements,
-                self.update_task_venn_diagram  # Callback for refresh after drop
-            )
+        self.drag_drop_handler = DragDropHandler(
+            self.venn_canvas,
+            self.task_elements,
+            self.update_task_venn_diagram,
+            db_path=self.db_path
+        )
 
         # Define the center of the Venn Diagram
         venn_center_x, venn_center_y = 512, 512
@@ -255,7 +183,6 @@ class GUIController:
 
         print(f"Entering update_task_venn_diagram, tasks count: {len(self.tasks)}")
         for task in self.tasks:
-            print(f"Rendering task: {task.title} with priority ({task.importance}, {task.urgency}, {task.fitness})")
 
             # Determine task placement based on priorities
             if task.importance == Priority.HIGH and task.urgency == Priority.HIGH and task.fitness == Priority.HIGH:
@@ -304,25 +231,19 @@ class GUIController:
             text_id = self.venn_canvas.create_text(x, y, text=task.title, tags="task_text")
 
             if task.title in self.task_elements:
-                print(f"[WARNING] Duplicate task title detected: {task.title}")
-            self.task_elements[task.title] = text_id
-            print(f"[DEBUG] Added task: {task.title} with text_id: {text_id}")
+                self.task_elements[task.title] = text_id
+
 
             # Bind drag-and-drop events to the task
             self.venn_canvas.tag_bind(
-                text_id, "<Button-1>", partial(self.drag_drop_handler.start_drag, tid=text_id)
+                text_id, "<Button-1>", lambda event, tid=text_id: self.drag_drop_handler.start_drag(event, tid)
             )
             self.venn_canvas.tag_bind(
-                text_id, "<B1-Motion>", partial(self.drag_drop_handler.drag_task, tid=text_id)
+                text_id, "<B1-Motion>", lambda event, tid=text_id: self.drag_drop_handler.drag_task(event, tid)
             )
             self.venn_canvas.tag_bind(
-                text_id, "<ButtonRelease-1>", partial(self.drag_drop_handler.drop_task, tid=text_id)
+                text_id, "<ButtonRelease-1>", lambda event, tid=text_id: self.drag_drop_handler.drop_task(event, tid)
             )
-
-            print(f"[DEBUG] Binding task: {task.title}, text_id: {text_id}")
-            print(f"[DEBUG] Task elements: {self.task_elements}")
-
-        print("Exiting update_task_venn_diagram")
 
     def load_tasks(self, filters=None):
         """
@@ -331,7 +252,6 @@ class GUIController:
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         self.tasks.clear()
-        print(f"Loading tasks for user {self.current_user_id}")  # Debug print
 
         # Base query
         query = '''
@@ -362,7 +282,6 @@ class GUIController:
                 query += ' AND due_date <= ?'
                 params.append(filters['due_date'].strftime("%Y-%m-%d"))
 
-        print(f"Executing query: {query} with params: {params}")  # Debug print
         cursor.execute(query, params)
         rows = cursor.fetchall()
 
@@ -388,43 +307,9 @@ class GUIController:
                 status=status
             )
             self.tasks.append(task)
-            print(f"Loaded task: {task.title}, Status: {task.status}")  # Debug print
 
         conn.close()
         self.update_task_venn_diagram()
-
-    def initialize_priority_combinations(self):
-        """
-        Initializes tasks with all possible priority combinations (HHH, HHL, HLH, etc.).
-        """
-        print("Initializing priority combinations...")  # Debug-Ausgabe
-        combinations = [
-            ("HHH", Priority.HIGH, Priority.HIGH, Priority.HIGH),
-            ("HHL", Priority.HIGH, Priority.HIGH, Priority.LOW),
-            ("HLH", Priority.HIGH, Priority.LOW, Priority.HIGH),
-            ("LHH", Priority.LOW, Priority.HIGH, Priority.HIGH),
-            ("LLH", Priority.LOW, Priority.LOW, Priority.HIGH),
-            ("LHL", Priority.LOW, Priority.HIGH, Priority.LOW),
-            ("HLL", Priority.HIGH, Priority.LOW, Priority.LOW),
-            ("LLL", Priority.LOW, Priority.LOW, Priority.LOW),
-        ]
-
-        self.tasks.clear()
-
-        for name, importance, urgency, fitness in combinations:
-            task = Task(
-                title=name,
-                description=f"Task with priority {name}",
-                due_date=None,
-                importance=importance,
-                urgency=urgency,
-                fitness=fitness,
-                status=Status.OPEN
-            )
-            self.tasks.append(task)
-
-        self.update_task_venn_diagram()
-
 
     def select_task(self, event, task, text_id):
         """
