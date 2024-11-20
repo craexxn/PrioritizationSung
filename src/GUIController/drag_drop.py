@@ -65,32 +65,42 @@ class DragDropHandler:
 
     def drop_task(self, event, task_id):
         """
-        Finalizes the task's position after dropping or handles a click if no drag occurred.
-
-        :param event: The mouse event.
-        :param task_id: The ID of the task being dragged.
+        Finalizes the task's position after dropping and updates its priority in the database.
         """
         if self.dragging_task_id != task_id:
             return  # Ignore if it's not the task currently being dragged
+
+        # Stop dragging
         self.is_dragging = False
+        self.dragging_task_id = None
 
-        if self.is_dragging:
-            x, y = event.x, event.y
-            new_priority_area = self.get_priority_from_position(x, y)
-            print(f"Dropped task ID: {task_id} at ({x}, {y}) in area: {new_priority_area}")
+        x, y = event.x, event.y
+        new_priority_area = self.get_priority_from_position(x, y)
+        print(f"Dropped task ID: {task_id} at ({x}, {y}) in area: {new_priority_area}")
 
-            # Update task's priority in the database
-            task_title = next((title for title, tid in self.task_elements.items() if tid == task_id), None)
-            if task_title:
-                self.update_task_priority_in_db(task_title, new_priority_area)
+        # Update the task's priority in the database
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
 
-            # Refresh the Venn diagram
+            # Update the task's priority in the database
+            cursor.execute('''
+                UPDATE tasks
+                SET importance = ?, urgency = ?, fitness = ?
+                WHERE id = ?
+            ''', (new_priority_area[0].name, new_priority_area[1].name, new_priority_area[2].name, task_id))
+
+            conn.commit()
+            conn.close()
+            print(f"Task ID {task_id} updated in database with new priorities {new_priority_area}.")
+
+            # Refresh the Venn diagram immediately
             self.update_callback()
-        else:
-            print(f"Task ID: {task_id} clicked (not dragged)")
+            print("Venn diagram updated after drop.")
 
-        # Reset dragging state
-        self.reset_drag_state()
+        except sqlite3.Error as e:
+            print(f"Error updating database for task ID {task_id}: {e}")
+
 
     def reset_drag_state(self):
         """
@@ -101,27 +111,6 @@ class DragDropHandler:
         self.start_y = None
         self.is_dragging = False
 
-    def update_task_priority_in_db(self, task_title, new_priority_area):
-        """
-        Updates the task's priority in the database.
-
-        :param task_title: The title of the task to update.
-        :param new_priority_area: A tuple representing the new priority.
-        """
-        try:
-            conn = sqlite3.connect(self.db_path)
-            cursor = conn.cursor()
-            cursor.execute('''
-                UPDATE tasks
-                SET importance = ?, urgency = ?, fitness = ?
-                WHERE title = ?
-            ''', (new_priority_area[0].name, new_priority_area[1].name, new_priority_area[2].name, task_title))
-            conn.commit()
-            print(f"Task '{task_title}' updated in database.")
-        except sqlite3.Error as e:
-            print(f"Error updating task in database: {e}")
-        finally:
-            conn.close()
 
     def get_priority_from_position(self, x, y):
         """

@@ -182,9 +182,8 @@ class GUIController:
             "F": 0
         }
 
-        print(f"Entering update_task_venn_diagram, tasks count: {len(self.tasks)}")
+        print(f"Reloading Venn Diagram with {len(self.tasks)} tasks")
         for task in self.tasks:
-
             # Determine task placement based on priorities
             if task.importance == Priority.HIGH and task.urgency == Priority.HIGH and task.fitness == Priority.HIGH:
                 # "Do Now" central placement in a circular layout
@@ -228,14 +227,12 @@ class GUIController:
                     self.low_listbox.insert(tk.END, task.title)
                 continue
 
-            # Create text element and map to task
+            # Create a text element for the task and map it
             text_id = self.venn_canvas.create_text(x, y, text=task.title, tags="task_text")
-
-            # Update task_elements to map task.id to text_id
-            self.task_elements[task.id] = text_id  # Use task.id instead of task.title
+            self.task_elements[task.id] = text_id  # Map the task ID to its text element
 
             # Debugging print
-            print(f"Mapping task ID {task.id} to text ID {text_id}")
+            print(f"Task '{task.title}' (ID: {task.id}) positioned at ({x}, {y})")
 
             # Bind drag-and-drop events to the task
             self.venn_canvas.tag_bind(
@@ -247,6 +244,8 @@ class GUIController:
             self.venn_canvas.tag_bind(
                 text_id, "<ButtonRelease-1>", lambda event, tid=task.id: self.drag_drop_handler.drop_task(event, tid)
             )
+
+        print("Venn Diagram updated.")
 
     def load_tasks(self, filters=None):
         """
@@ -374,8 +373,8 @@ class GUIController:
 
         if selected_task:
             self.selected_task_index = self.tasks.index(selected_task)
-            # Clear selection in the Venn diagram (falls notwendig)
-            self.venn_canvas.delete("task_text")  # Beispielaktion
+            # Clear selection in the Venn diagram (
+            self.venn_canvas.delete("task_text")
         else:
             self.selected_task_index = None
 
