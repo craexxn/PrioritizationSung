@@ -231,19 +231,21 @@ class GUIController:
             # Create text element and map to task
             text_id = self.venn_canvas.create_text(x, y, text=task.title, tags="task_text")
 
-            if task.title in self.task_elements:
-                self.task_elements[task.title] = text_id
+            # Update task_elements to map task.id to text_id
+            self.task_elements[task.id] = text_id  # Use task.id instead of task.title
 
+            # Debugging print
+            print(f"Mapping task ID {task.id} to text ID {text_id}")
 
             # Bind drag-and-drop events to the task
             self.venn_canvas.tag_bind(
-                text_id, "<Button-1>", lambda event, tid=text_id: self.drag_or_select_task(event, task, tid)
+                text_id, "<Button-1>", lambda event, tid=task.id: self.drag_or_select_task(event, tid)
             )
             self.venn_canvas.tag_bind(
-                text_id, "<B1-Motion>", lambda event, tid=text_id: self.drag_drop_handler.drag_task(event, tid)
+                text_id, "<B1-Motion>", lambda event, tid=task.id: self.drag_drop_handler.drag_task(event, tid)
             )
             self.venn_canvas.tag_bind(
-                text_id, "<ButtonRelease-1>", lambda event, tid=text_id: self.drag_drop_handler.drop_task(event, tid)
+                text_id, "<ButtonRelease-1>", lambda event, tid=task.id: self.drag_drop_handler.drop_task(event, tid)
             )
 
     def load_tasks(self, filters=None):
@@ -256,7 +258,7 @@ class GUIController:
 
         # Base query
         query = '''
-            SELECT title, description, due_date, importance, urgency, fitness, status 
+            SELECT id, title, description, due_date, importance, urgency, fitness, status 
             FROM tasks 
             WHERE user_id = ?
         '''
@@ -287,7 +289,7 @@ class GUIController:
         rows = cursor.fetchall()
 
         for row in rows:
-            title, description, due_date_str, importance_str, urgency_str, fitness_str, status_str = row
+            task_id, title, description, due_date_str, importance_str, urgency_str, fitness_str, status_str = row
             due_date = datetime.strptime(due_date_str, '%Y-%m-%d').date() if due_date_str else None
 
             # Convert database values to Priority Enum
@@ -305,14 +307,15 @@ class GUIController:
                 importance=importance,
                 urgency=urgency,
                 fitness=fitness,
-                status=status
+                status=status,
+                task_id=task_id
             )
             self.tasks.append(task)
 
         conn.close()
         self.update_task_venn_diagram()
 
-    def select_task(self, event, task, text_id):
+    def select_task(self, event, task_id):
         """
         Marks the task as selected and highlights it for editing.
         """
@@ -320,13 +323,18 @@ class GUIController:
         if self.selected_task is not None:
             self.venn_canvas.itemconfig(self.selected_task["text_id"], fill="black")
 
-        # Set the new selected task and change its color to indicate selection
-        self.selected_task = {"task": task, "text_id": text_id}
-        self.venn_canvas.itemconfig(text_id, fill="red")  # Highlight selected task in red
+        # Find the task by task_id
+        selected_task = next((task for task in self.tasks if task.id == task_id), None)
+        if not selected_task:
+            print(f"Task with ID {task_id} not found in self.tasks!")
+            return
 
-        # Find and store the index of the selected task
-        self.selected_task_index = self.tasks.index(task)
-        print(f"Task selected: {task.title}, Index: {self.selected_task_index}")
+        # Set the new selected task and highlight it
+        self.selected_task = {"task": selected_task, "text_id": self.task_elements[task_id]}
+        self.venn_canvas.itemconfig(self.task_elements[task_id], fill="red")  # Highlight selected task in red
+
+        # Debugging print
+        print(f"Task selected: {selected_task.title}, ID: {task_id}")
 
     def edit_task_from_canvas(self, task):
         """
@@ -334,6 +342,7 @@ class GUIController:
         """
         TaskEditor(self, "Edit Task", task=task)
 
+    '''
     def task_listbox_select(self, event):
         selected_index = self.task_listbox.curselection()
         if selected_index:
@@ -342,6 +351,7 @@ class GUIController:
             self.low_listbox.selection_clear(0, tk.END)
         else:
             self.selected_task_index = None
+    '''
 
     def update_task_listbox(self):
         """
@@ -606,22 +616,23 @@ class GUIController:
             # Delegate task status change to TaskEditor
             TaskEditor.mark_task_open(task_to_update, self)
 
-    def drag_or_select_task(self, event, task, text_id):
+    def drag_or_select_task(self, event, task_id):
         """
         Handles whether a task is clicked (select) or dragged.
         """
-        # Markiert den Anfang des Drag-Vorgangs
-        self.drag_drop_handler.start_drag(event, text_id)
+        # Start the drag process
+        self.drag_drop_handler.start_drag(event, task_id)
 
-        # Verzögertes Überprüfen für "Drag vs. Click"
-        self.root.after(200, lambda: self._handle_click_or_drag(event, task, text_id))
+        # Delayed check for "drag vs. click"
+        self.root.after(200, lambda: self._handle_click_or_drag(event, task_id))
 
-    def _handle_click_or_drag(self, event, task, text_id):
+    def _handle_click_or_drag(self, event, task_id):
         """
         Finalizes whether it was a click or drag.
         """
         if not self.drag_drop_handler.is_dragging:
-            # Kein Dragging erkannt -> Auswahl und Markierung
-            self.select_task(event, task, text_id)
+            # No dragging detected -> Select the task
+            self.select_task(event, task_id)
         else:
             print("Task dragged, skipping selection.")
+
