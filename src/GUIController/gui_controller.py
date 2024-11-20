@@ -323,18 +323,16 @@ class GUIController:
         if self.selected_task is not None:
             self.venn_canvas.itemconfig(self.selected_task["text_id"], fill="black")
 
-        # Find the task by task_id
+        # Find the task by task_id in self.tasks
         selected_task = next((task for task in self.tasks if task.id == task_id), None)
         if not selected_task:
-            print(f"Task with ID {task_id} not found in self.tasks!")
+            print(f"[ERROR] Task with ID {task_id} not found in self.tasks!")
             return
 
-        # Set the new selected task and highlight it
         self.selected_task = {"task": selected_task, "text_id": self.task_elements[task_id]}
-        self.venn_canvas.itemconfig(self.task_elements[task_id], fill="red")  # Highlight selected task in red
+        self.venn_canvas.itemconfig(self.selected_task["text_id"], fill="red")  # Highlight selected task in red
 
-        # Debugging print
-        print(f"Task selected: {selected_task.title}, ID: {task_id}")
+        print(f"Task selected: {selected_task.title}, ID: {selected_task.id}")
 
     def edit_task_from_canvas(self, task):
         """
@@ -434,19 +432,24 @@ class GUIController:
         )
 
     def edit_task(self):
-        if self.selected_task_index is None:
+        """
+        Opens the TaskEditor for editing the selected task.
+        """
+        if not self.selected_task:
             messagebox.showwarning("No Selection", "Please select a task to edit.")
             return
-        selected_task = self.tasks[self.selected_task_index]
-        TaskEditor(self, "Edit Task", task=selected_task, index=self.selected_task_index)
+
+        selected_task = self.selected_task["task"]
+        TaskEditor(self, "Edit Task", task=selected_task)
 
     def delete_task(self):
         """
         Deletes the selected task from the list and updates the diagram and listbox accordingly.
         Displays a confirmation dialog before deleting the task.
         """
-        # Check if a task is selected in the Venn diagram or LOW priority listbox
         task_to_delete = None
+
+        # Check if a task is selected in the Venn diagram or LOW priority listbox
         if self.selected_task:
             task_to_delete = self.selected_task["task"]
         elif self.low_listbox.curselection():
@@ -468,8 +471,8 @@ class GUIController:
             # Remove the task from the database
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
-            cursor.execute('DELETE FROM tasks WHERE title = ? AND user_id = ?',
-                           (task_to_delete.title, self.current_user_id))
+            cursor.execute('DELETE FROM tasks WHERE id = ? AND user_id = ?',
+                           (task_to_delete.id, self.current_user_id))
             conn.commit()
             conn.close()
 
@@ -478,7 +481,7 @@ class GUIController:
             if self.selected_task:
                 self.venn_canvas.delete(self.selected_task["text_id"])  # Remove from Venn diagram
                 self.selected_task = None  # Clear selection
-            else:
+            elif self.low_listbox.curselection():
                 self.low_listbox.delete(selected_index)  # Remove from "LOW" listbox
 
             messagebox.showinfo("Task Deleted", f"Task '{task_to_delete.title}' has been deleted successfully.")
@@ -493,20 +496,47 @@ class GUIController:
         """
         Marks the selected task as completed. If auto-archive is enabled, the task will be archived immediately.
         """
-        if self.selected_task_index is None:
+        task_to_mark = None
+
+        # Determine which task is selected
+        if self.selected_task:
+            task_to_mark = self.selected_task["task"]
+        elif self.low_listbox.curselection():
+            selected_index = self.low_listbox.curselection()[0]
+            selected_task_title = self.low_listbox.get(selected_index)
+            task_to_mark = next((task for task in self.tasks if task.title == selected_task_title), None)
+
+        if not task_to_mark:
             messagebox.showwarning("No Selection", "Please select a task to mark as completed.")
             return
 
-        selected_task = self.tasks[self.selected_task_index]
-        selected_task.status = Status.COMPLETED
+        # Update the task's status
+        task_to_mark.status = Status.COMPLETED
 
-        # Check if auto-archive is enabled
-        if self.settings_manager.get_settings().get("auto_archive", False):
-            self.archive_selected_task(task_to_archive=selected_task)  # Archive the task directly
-        else:
-            messagebox.showinfo("Task Completed", f"Task '{selected_task.title}' has been marked as completed.")
+        try:
+            # Update the status in the database
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            cursor.execute('''
+                UPDATE tasks
+                SET status = ?
+                WHERE id = ? AND user_id = ?
+            ''', (Status.COMPLETED.value, task_to_mark.id, self.current_user_id))
+            conn.commit()
+            conn.close()
 
-        self.update_task_listbox()  # Refresh the task list
+            # Check if auto-archive is enabled
+            if self.settings_manager.get_settings().get("auto_archive", False):
+                self.archive_selected_task(task_to_archive=task_to_mark)  # Archive the task directly
+            else:
+                messagebox.showinfo("Task Completed", f"Task '{task_to_mark.title}' has been marked as completed.")
+
+        except sqlite3.Error as e:
+            messagebox.showerror("Database Error", f"Error marking task as completed: {e}")
+            return
+
+        # Refresh the task list
+        self.update_task_listbox()
 
     def archive_selected_task(self, task_to_archive=None):
         """
@@ -517,13 +547,11 @@ class GUIController:
             # Check if a task is selected in the Venn diagram
             if self.selected_task:
                 task_to_archive = self.selected_task["task"]
-            # Check if a task is selected in the "LOW Priority Tasks" listbox
             elif self.low_listbox.curselection():
                 selected_index = self.low_listbox.curselection()[0]
                 selected_task_title = self.low_listbox.get(selected_index)
                 task_to_archive = next((task for task in self.tasks if task.title == selected_task_title), None)
 
-        # Check if no task was provided or selected
         if not task_to_archive:
             messagebox.showwarning("No Selection", "Please select a task to archive.")
             return
@@ -554,8 +582,8 @@ class GUIController:
             ))
 
             # Delete the task from the main tasks table
-            cursor.execute('DELETE FROM tasks WHERE title = ? AND user_id = ?',
-                           (task_to_archive.title, self.current_user_id))
+            cursor.execute('DELETE FROM tasks WHERE id = ? AND user_id = ?',
+                           (task_to_archive.id, self.current_user_id))
 
             conn.commit()
             conn.close()
@@ -565,7 +593,7 @@ class GUIController:
             if self.selected_task:
                 self.venn_canvas.delete(self.selected_task["text_id"])  # Remove from Venn diagram
                 self.selected_task = None  # Clear selection
-            else:
+            elif self.low_listbox.curselection():
                 self.low_listbox.delete(selected_index)  # Remove from "LOW" listbox
 
             messagebox.showinfo("Success", f"Task '{task_to_archive.title}' has been archived.")
