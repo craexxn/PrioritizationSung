@@ -210,50 +210,20 @@ class GUIController:
         conn.close()
         self.update_task_venn_diagram()
 
-    '''
-    def initialize_priority_combinations(self):
-        """
-        Initializes tasks with all possible priority combinations (HHH, HHL, HLH, etc.).
-        """
-        print("Initializing priority combinations...")  # Debug-Ausgabe
-        combinations = [
-            ("HHH", Priority.HIGH, Priority.HIGH, Priority.HIGH),
-            ("HHL", Priority.HIGH, Priority.HIGH, Priority.LOW),
-            ("HLH", Priority.HIGH, Priority.LOW, Priority.HIGH),
-            ("LHH", Priority.LOW, Priority.HIGH, Priority.HIGH),
-            ("LLH", Priority.LOW, Priority.LOW, Priority.HIGH),
-            ("LHL", Priority.LOW, Priority.HIGH, Priority.LOW),
-            ("HLL", Priority.HIGH, Priority.LOW, Priority.LOW),
-            ("LLL", Priority.LOW, Priority.LOW, Priority.LOW),
-        ]
-
-        self.tasks.clear()  # Überschreibe keine gespeicherten Tasks!
-
-        for name, importance, urgency, fitness in combinations:
-            task = Task(
-                title=name,
-                description=f"Task with priority {name}",
-                due_date=None,  # Kein Fälligkeitsdatum
-                importance=importance,
-                urgency=urgency,
-                fitness=fitness,
-                status=Status.OPEN
-            )
-            self.tasks.append(task)  # Debugging-Daten hinzufügen
-
-        self.update_task_venn_diagram()
-        '''
 
     def update_task_venn_diagram(self):
         """
         Updates the Venn diagram with current tasks and initializes drag-and-drop bindings.
+        Ensures tasks are correctly displayed based on their priorities without overlapping.
         """
         print("Updating Venn Diagram...")
         self.venn_canvas.delete("task_text")
         self.low_listbox.delete(0, tk.END)
         self.task_elements.clear()  # Reset task mapping
 
+        # Initialize DragDropHandler if not already initialized
         if not self.drag_drop_handler:
+            print("Reinitializing DragDropHandler...")
             self.drag_drop_handler = DragDropHandler(
                 self.venn_canvas,
                 self.task_elements,
@@ -271,32 +241,61 @@ class GUIController:
         urgency_center = (venn_center_x, venn_center_y + medium_radius)
         fitness_center = (venn_center_x + medium_radius, venn_center_y)
 
-        offset_step = 15  # Offset for task placement
-        placement_offsets = {"HHH": 0, "HH": 0, "HF": 0, "UF": 0, "I": 0, "U": 0, "F": 0}
+        # Offset for spreading tasks within the same priority region
+        offset_step = 15
+        placement_offsets = {
+            "HHH": 0,  # Angle counter for circular placement
+            "HH": 0,
+            "HF": 0,
+            "UF": 0,
+            "I": 0,
+            "U": 0,
+            "F": 0
+        }
 
         print(f"Entering update_task_venn_diagram, tasks count: {len(self.tasks)}")
         for task in self.tasks:
-            try:
-                print(f"Rendering task: {task.title}")
-                print(f"Number of tasks in loop: {len(self.tasks)}")
-            except Exception as e:
-                print(f"Error during loop: {e}")
-            print("Exiting update_task_venn_diagram")
-            # Calculate task placement (logic unchanged)
-            # Example for "HHH":
+            print(f"Rendering task: {task.title} with priority ({task.importance}, {task.urgency}, {task.fitness})")
+
+            # Determine task placement based on priorities
             if task.importance == Priority.HIGH and task.urgency == Priority.HIGH and task.fitness == Priority.HIGH:
+                # "Do Now" central placement in a circular layout
                 angle_rad = math.radians(hhh_angle_step * placement_offsets["HHH"])
                 x = venn_center_x + hhh_radius * math.cos(angle_rad)
                 y = venn_center_y + hhh_radius * math.sin(angle_rad) + 75
                 placement_offsets["HHH"] += 1.5
             elif task.importance == Priority.HIGH and task.urgency == Priority.HIGH:
+                # Overlap region between Importance and Urgency
                 x = (importance_center[0] + urgency_center[0]) / 2
                 y = (importance_center[1] + urgency_center[1]) / 2 + placement_offsets["HH"]
                 placement_offsets["HH"] += offset_step
-            # Add other placement logic here...
-
-            # Add LOW priority to the listbox
+            elif task.importance == Priority.HIGH and task.fitness == Priority.HIGH:
+                # Overlap region between Importance and Fitness
+                x = (importance_center[0] + fitness_center[0]) / 2
+                y = (importance_center[1] + fitness_center[1]) / 2 + placement_offsets["HF"]
+                placement_offsets["HF"] += offset_step
+            elif task.urgency == Priority.HIGH and task.fitness == Priority.HIGH:
+                # Overlap region between Urgency and Fitness
+                x = (urgency_center[0] + fitness_center[0]) / 2
+                y = (urgency_center[1] + fitness_center[1]) / 2 + placement_offsets["UF"]
+                placement_offsets["UF"] += offset_step
+            elif task.importance == Priority.HIGH:
+                # Importance circle
+                x = importance_center[0]
+                y = importance_center[1] + placement_offsets["I"]
+                placement_offsets["I"] += offset_step
+            elif task.urgency == Priority.HIGH:
+                # Urgency circle
+                x = urgency_center[0]
+                y = urgency_center[1] + placement_offsets["U"]
+                placement_offsets["U"] += offset_step
+            elif task.fitness == Priority.HIGH:
+                # Fitness circle
+                x = fitness_center[0]
+                y = fitness_center[1] + placement_offsets["F"]
+                placement_offsets["F"] += offset_step
             else:
+                # LOW priority tasks go into the listbox
                 if task.title not in self.low_listbox.get(0, tk.END):
                     self.low_listbox.insert(tk.END, task.title)
                 continue
@@ -322,6 +321,8 @@ class GUIController:
 
             print(f"[DEBUG] Binding task: {task.title}, text_id: {text_id}")
             print(f"[DEBUG] Task elements: {self.task_elements}")
+
+        print("Exiting update_task_venn_diagram")
 
     def load_tasks(self, filters=None):
         """
@@ -424,88 +425,6 @@ class GUIController:
 
         self.update_task_venn_diagram()
 
-    def update_task_venn_diagram(self):
-        """
-        Updates the Venn diagram display with the current tasks.
-        Ensures tasks are correctly displayed based on their priorities without overlapping.
-        """
-        print("Updating Venn Diagram...")
-        self.venn_canvas.delete("task_text")
-        self.low_listbox.delete(0, tk.END)
-
-        # Define the center of the Venn Diagram
-        venn_center_x, venn_center_y = 512, 512
-        medium_radius = 375
-        hhh_radius = 75  # Radius for "Do Now" circular placement
-        hhh_angle_step = 30  # Angle step for placing tasks in "HHH"
-
-        # Centers for each priority circle
-        importance_center = (venn_center_x - medium_radius, venn_center_y)
-        urgency_center = (venn_center_x, venn_center_y + medium_radius)
-        fitness_center = (venn_center_x + medium_radius, venn_center_y)
-
-        # Offset for spreading tasks within the same priority region
-        offset_step = 15
-
-        # Track task counters to manage placement offsets
-        placement_offsets = {
-            "HHH": 0,  # Angle counter for circular placement
-            "HH": 0,
-            "HF": 0,
-            "UF": 0,
-            "I": 0,
-            "U": 0,
-            "F": 0
-        }
-
-        for task in self.tasks:
-            print(f"Rendering task: {task.title} with priority ({task.importance}, {task.urgency}, {task.fitness})")
-
-            if task.importance == Priority.HIGH and task.urgency == Priority.HIGH and task.fitness == Priority.HIGH:
-                # "Do Now" central placement in a circular layout
-                angle_rad = math.radians(hhh_angle_step * placement_offsets["HHH"])
-                x = venn_center_x + hhh_radius * math.cos(angle_rad)
-                y = venn_center_y + hhh_radius * math.sin(angle_rad) + 75
-                placement_offsets["HHH"] += 1.5
-            elif task.importance == Priority.HIGH and task.urgency == Priority.HIGH:
-                # Overlap region between Importance and Urgency
-                x = (importance_center[0] + urgency_center[0]) / 2
-                y = (importance_center[1] + urgency_center[1]) / 2 + placement_offsets["HH"]
-                placement_offsets["HH"] += offset_step
-            elif task.importance == Priority.HIGH and task.fitness == Priority.HIGH:
-                # Overlap region between Importance and Fitness
-                x = (importance_center[0] + fitness_center[0]) / 2
-                y = (importance_center[1] + fitness_center[1]) / 2 + placement_offsets["HF"]
-                placement_offsets["HF"] += offset_step
-            elif task.urgency == Priority.HIGH and task.fitness == Priority.HIGH:
-                # Overlap region between Urgency and Fitness
-                x = (urgency_center[0] + fitness_center[0]) / 2
-                y = (urgency_center[1] + fitness_center[1]) / 2 + placement_offsets["UF"]
-                placement_offsets["UF"] += offset_step
-            elif task.importance == Priority.HIGH:
-                # Importance circle
-                x = importance_center[0]
-                y = importance_center[1] + placement_offsets["I"]
-                placement_offsets["I"] += offset_step
-            elif task.urgency == Priority.HIGH:
-                # Urgency circle
-                x = urgency_center[0]
-                y = urgency_center[1] + placement_offsets["U"]
-                placement_offsets["U"] += offset_step
-            elif task.fitness == Priority.HIGH:
-                # Fitness circle
-                x = fitness_center[0]
-                y = fitness_center[1] + placement_offsets["F"]
-                placement_offsets["F"] += offset_step
-            else:
-                # LOW priority tasks go into the listbox
-                if task.title not in self.low_listbox.get(0, tk.END):
-                    self.low_listbox.insert(tk.END, task.title)
-                continue
-
-            # Display the task title at the calculated position
-            text_id = self.venn_canvas.create_text(x, y, text=task.title, tags="task_text")
-            self.venn_canvas.tag_bind(text_id, "<Button-1>", lambda e, t=task, tid=text_id: self.select_task(e, t, tid))
 
     def select_task(self, event, task, text_id):
         """

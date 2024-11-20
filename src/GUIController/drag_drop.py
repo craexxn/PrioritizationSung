@@ -7,6 +7,7 @@ class DragDropHandler:
     """
 
     def __init__(self, canvas, task_elements, update_callback):
+        print("DragDropHandler initialized with canvas: {canvas}")
         """
         Initializes the DragDropHandler.
 
