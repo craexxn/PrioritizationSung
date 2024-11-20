@@ -7,35 +7,40 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../T
 
 from task import Priority
 
+
 class DragDropHandler:
     """
     Handles drag-and-drop functionality for tasks within the Venn diagram.
     """
 
     def __init__(self, canvas, task_elements, update_callback, db_path):
-        print("DragDropHandler initialized with canvas: {canvas}")
         """
         Initializes the DragDropHandler.
 
         :param canvas: The canvas where tasks are displayed.
         :param task_elements: A dictionary mapping task titles to their canvas text IDs.
         :param update_callback: A callback function to refresh the Venn diagram after a drop.
+        :param db_path: The path to the SQLite database.
         """
+        print(f"DragDropHandler initialized with canvas: {canvas}")
         self.canvas = canvas
         self.task_elements = task_elements
         self.update_callback = update_callback
-        self.db_path = db_path  # Store database path
+        self.db_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../Database/database.db'))
         self.dragging_task_id = None
         self.start_x = None
         self.start_y = None
+        self.is_dragging = False  # Flag to differentiate between click and drag
+        self.drag_threshold = 5  # Minimum distance to start dragging
 
     def start_drag(self, event, task_id):
         """
-        Initiates dragging of a task.
+        Prepares for dragging of a task.
 
         :param event: The mouse event.
         :param task_id: The ID of the task being dragged.
         """
+        self.is_dragging = False  # Reset dragging flag
         self.dragging_task_id = task_id
         self.start_x = event.x
         self.start_y = event.y
@@ -51,58 +56,72 @@ class DragDropHandler:
         if self.dragging_task_id != task_id:
             return  # Ignore if it's not the task currently being dragged
 
+        self.is_dragging = True  # Jetzt wird Dragging als aktiv markiert
         dx = event.x - self.start_x
         dy = event.y - self.start_y
         self.canvas.move(task_id, dx, dy)
-
-        # Update starting position for the next motion event
-        self.start_x = event.x
-        self.start_y = event.y
+        self.start_x, self.start_y = event.x, event.y
         print(f"Dragging task ID: {task_id} to ({event.x}, {event.y})")
 
     def drop_task(self, event, task_id):
         """
-        Finalizes the task's position after dropping.
+        Finalizes the task's position after dropping or handles a click if no drag occurred.
 
         :param event: The mouse event.
         :param task_id: The ID of the task being dragged.
         """
         if self.dragging_task_id != task_id:
             return  # Ignore if it's not the task currently being dragged
+        self.is_dragging = False
 
-        x, y = event.x, event.y
+        if self.is_dragging:
+            x, y = event.x, event.y
+            new_priority_area = self.get_priority_from_position(x, y)
+            print(f"Dropped task ID: {task_id} at ({x}, {y}) in area: {new_priority_area}")
 
-        # Determine priority area based on drop position
-        new_priority_area = self.get_priority_from_position(x, y)
-        print(f"Dropped task ID: {task_id} at ({x}, {y}) in area: {new_priority_area}")
+            # Update task's priority in the database
+            task_title = next((title for title, tid in self.task_elements.items() if tid == task_id), None)
+            if task_title:
+                self.update_task_priority_in_db(task_title, new_priority_area)
 
-        # Update task's priority in the GUIController or database
-        task_title = next((title for title, tid in self.task_elements.items() if tid == task_id), None)
-        if task_title:
-            print(f"Updating task '{task_title}' to area: {new_priority_area}")
-            # Find the task in the database and update its priority
-            try:
-                conn = sqlite3.connect(self.db_path)  # Ensure db_path is passed to DragDropHandler
-                cursor = conn.cursor()
-                cursor.execute('''
-                    UPDATE tasks
-                    SET importance = ?, urgency = ?, fitness = ?
-                    WHERE title = ?
-                ''', (new_priority_area[0].name, new_priority_area[1].name, new_priority_area[2].name, task_title))
-                conn.commit()
-                print(f"Task '{task_title}' updated in database.")
-            except sqlite3.Error as e:
-                print(f"Error updating task in database: {e}")
-            finally:
-                conn.close()
-
-        # Refresh the Venn diagram
-        self.update_callback()
+            # Refresh the Venn diagram
+            self.update_callback()
+        else:
+            print(f"Task ID: {task_id} clicked (not dragged)")
 
         # Reset dragging state
+        self.reset_drag_state()
+
+    def reset_drag_state(self):
+        """
+        Resets the dragging state.
+        """
         self.dragging_task_id = None
         self.start_x = None
         self.start_y = None
+        self.is_dragging = False
+
+    def update_task_priority_in_db(self, task_title, new_priority_area):
+        """
+        Updates the task's priority in the database.
+
+        :param task_title: The title of the task to update.
+        :param new_priority_area: A tuple representing the new priority.
+        """
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            cursor.execute('''
+                UPDATE tasks
+                SET importance = ?, urgency = ?, fitness = ?
+                WHERE title = ?
+            ''', (new_priority_area[0].name, new_priority_area[1].name, new_priority_area[2].name, task_title))
+            conn.commit()
+            print(f"Task '{task_title}' updated in database.")
+        except sqlite3.Error as e:
+            print(f"Error updating task in database: {e}")
+        finally:
+            conn.close()
 
     def get_priority_from_position(self, x, y):
         """
@@ -137,7 +156,6 @@ class DragDropHandler:
             fitness = Priority.HIGH
 
         return importance, urgency, fitness
-
 
 def get_priority_areas(self):
     """

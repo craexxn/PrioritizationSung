@@ -57,6 +57,7 @@ class GUIController:
         self.drag_drop_handler = None  # Drag-and-drop handler, initialized later
 
         self.selected_task = None  # Tracks selected task for editing
+        self.selected_task_index = None  # index of selected task
 
         self.create_widgets()
 
@@ -236,7 +237,7 @@ class GUIController:
 
             # Bind drag-and-drop events to the task
             self.venn_canvas.tag_bind(
-                text_id, "<Button-1>", lambda event, tid=text_id: self.drag_drop_handler.start_drag(event, tid)
+                text_id, "<Button-1>", lambda event, tid=text_id: self.drag_or_select_task(event, task, tid)
             )
             self.venn_canvas.tag_bind(
                 text_id, "<B1-Motion>", lambda event, tid=text_id: self.drag_drop_handler.drag_task(event, tid)
@@ -325,6 +326,7 @@ class GUIController:
 
         # Find and store the index of the selected task
         self.selected_task_index = self.tasks.index(task)
+        print(f"Task selected: {task.title}, Index: {self.selected_task_index}")
 
     def edit_task_from_canvas(self, task):
         """
@@ -603,3 +605,23 @@ class GUIController:
 
             # Delegate task status change to TaskEditor
             TaskEditor.mark_task_open(task_to_update, self)
+
+    def drag_or_select_task(self, event, task, text_id):
+        """
+        Handles whether a task is clicked (select) or dragged.
+        """
+        # Markiert den Anfang des Drag-Vorgangs
+        self.drag_drop_handler.start_drag(event, text_id)
+
+        # Verzögertes Überprüfen für "Drag vs. Click"
+        self.root.after(200, lambda: self._handle_click_or_drag(event, task, text_id))
+
+    def _handle_click_or_drag(self, event, task, text_id):
+        """
+        Finalizes whether it was a click or drag.
+        """
+        if not self.drag_drop_handler.is_dragging:
+            # Kein Dragging erkannt -> Auswahl und Markierung
+            self.select_task(event, task, text_id)
+        else:
+            print("Task dragged, skipping selection.")
