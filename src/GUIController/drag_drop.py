@@ -49,18 +49,18 @@ class DragDropHandler:
     def drag_task(self, event, task_id):
         """
         Handles the movement of a task during dragging.
-
-        :param event: The mouse event.
-        :param task_id: The ID of the task being dragged.
         """
         if self.dragging_task_id != task_id:
             return  # Ignore if it's not the task currently being dragged
 
-        self.is_dragging = True  # Jetzt wird Dragging als aktiv markiert
+        # Calculate movement
         dx = event.x - self.start_x
         dy = event.y - self.start_y
-        self.canvas.move(task_id, dx, dy)
-        self.start_x, self.start_y = event.x, event.y
+        self.canvas.move(self.task_elements[task_id], dx, dy)
+
+        # Update starting position for the next motion event
+        self.start_x = event.x
+        self.start_y = event.y
         print(f"Dragging task ID: {task_id} to ({event.x}, {event.y})")
 
     def drop_task(self, event, task_id):
