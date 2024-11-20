@@ -152,10 +152,11 @@ class GUIController:
         self.task_elements.clear()  # Reset task mapping
 
         # Initialize DragDropHandler if not already initialized
+        # Initialize DragDropHandler
         self.drag_drop_handler = DragDropHandler(
             self.venn_canvas,
             self.task_elements,
-            self.update_task_venn_diagram,
+            self,
             db_path=self.db_path
         )
 
