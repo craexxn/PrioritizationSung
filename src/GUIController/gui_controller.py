@@ -5,7 +5,8 @@ import sqlite3
 import tkinter as tk
 from tkinter import messagebox, Canvas
 from datetime import datetime
-import json
+from functools import partial
+
 
 # Import paths for other modules
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../Task')))
@@ -273,8 +274,14 @@ class GUIController:
         offset_step = 15  # Offset for task placement
         placement_offsets = {"HHH": 0, "HH": 0, "HF": 0, "UF": 0, "I": 0, "U": 0, "F": 0}
 
+        print(f"Entering update_task_venn_diagram, tasks count: {len(self.tasks)}")
         for task in self.tasks:
-            print(f"Rendering task: {task.title} with priority ({task.importance}, {task.urgency}, {task.fitness})")
+            try:
+                print(f"Rendering task: {task.title}")
+                print(f"Number of tasks in loop: {len(self.tasks)}")
+            except Exception as e:
+                print(f"Error during loop: {e}")
+            print("Exiting update_task_venn_diagram")
             # Calculate task placement (logic unchanged)
             # Example for "HHH":
             if task.importance == Priority.HIGH and task.urgency == Priority.HIGH and task.fitness == Priority.HIGH:
@@ -296,15 +303,25 @@ class GUIController:
 
             # Create text element and map to task
             text_id = self.venn_canvas.create_text(x, y, text=task.title, tags="task_text")
+
+            if task.title in self.task_elements:
+                print(f"[WARNING] Duplicate task title detected: {task.title}")
+            self.task_elements[task.title] = text_id
+            print(f"[DEBUG] Added task: {task.title} with text_id: {text_id}")
+
+            # Bind drag-and-drop events to the task
             self.venn_canvas.tag_bind(
-                text_id, "<Button-1>", lambda e, tid=text_id: self.drag_drop_handler.start_drag(e, tid)
+                text_id, "<Button-1>", partial(self.drag_drop_handler.start_drag, tid=text_id)
             )
             self.venn_canvas.tag_bind(
-                text_id, "<B1-Motion>", lambda e, tid=text_id: self.drag_drop_handler.drag_task(e, tid)
+                text_id, "<B1-Motion>", partial(self.drag_drop_handler.drag_task, tid=text_id)
             )
             self.venn_canvas.tag_bind(
-                text_id, "<ButtonRelease-1>", lambda e, tid=text_id: self.drag_drop_handler.drop_task(e, tid)
+                text_id, "<ButtonRelease-1>", partial(self.drag_drop_handler.drop_task, tid=text_id)
             )
+
+            print(f"[DEBUG] Binding task: {task.title}, text_id: {text_id}")
+            print(f"[DEBUG] Task elements: {self.task_elements}")
 
     def load_tasks(self, filters=None):
         """
@@ -391,19 +408,19 @@ class GUIController:
             ("LLL", Priority.LOW, Priority.LOW, Priority.LOW),
         ]
 
-        self.tasks.clear()  # Überschreibe keine gespeicherten Tasks!
+        self.tasks.clear()
 
         for name, importance, urgency, fitness in combinations:
             task = Task(
                 title=name,
                 description=f"Task with priority {name}",
-                due_date=None,  # Kein Fälligkeitsdatum
+                due_date=None,
                 importance=importance,
                 urgency=urgency,
                 fitness=fitness,
                 status=Status.OPEN
             )
-            self.tasks.append(task)  # Debugging-Daten hinzufügen
+            self.tasks.append(task)
 
         self.update_task_venn_diagram()
 
