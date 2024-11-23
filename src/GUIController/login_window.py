@@ -2,6 +2,7 @@ import os
 import sys
 import tkinter as tk
 from tkinter import messagebox
+import re
 
 # Import paths for other modules
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../User')))
@@ -9,6 +10,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../U
 
 from user_repository import UserRepository
 from user import User
+
 
 class LoginWindow(tk.Toplevel):
     """
@@ -41,13 +43,47 @@ class LoginWindow(tk.Toplevel):
         tk.Button(self, text="Login", command=self.login).pack(pady=10)
         tk.Button(self, text="Register", command=self.register).pack(pady=5)
 
+    def validate_input(self, username, password):
+        """
+        Validates the username and password for length and allowed characters.
+
+        :param username: The username input by the user.
+        :param password: The password input by the user.
+        :return: True if input is valid, False otherwise.
+        """
+        if not username or not password:
+            messagebox.showwarning("Warning", "Username and password cannot be empty.")
+            return False
+
+        # Validate username: must be alphanumeric and 3-20 characters long
+        if not re.match(r'^[a-zA-Z0-9]{3,20}$', username):
+            messagebox.showwarning(
+                "Warning",
+                "Username must be 3-20 characters long and contain only alphanumeric characters."
+            )
+            return False
+
+        # Validate password: must be at least 8 characters long
+        if len(password) < 2:
+            messagebox.showwarning(
+                "Warning",
+                "Password must be at least 3 characters long."
+            )
+            return False
+
+        return True
+
     def login(self):
-        username = self.username_entry.get()
-        password = self.password_entry.get()
+        username = self.username_entry.get().strip()
+        password = self.password_entry.get().strip()
+
+        # Validate input before proceeding
+        if not self.validate_input(username, password):
+            return
+
         user = self.user_repo.get_user_by_username(username)
 
         if user and user.check_password(password):
-            print("Login successful!")  # Debug print
             self.controller.current_user = username
             self.controller.current_user_id = user.id  # Store the user_id in the controller
             self.controller.load_tasks()  # Load tasks for this user
@@ -56,12 +92,11 @@ class LoginWindow(tk.Toplevel):
             messagebox.showerror("Error", "Invalid username or password.")
 
     def register(self):
-        username = self.username_entry.get()
-        password = self.password_entry.get()
+        username = self.username_entry.get().strip()
+        password = self.password_entry.get().strip()
 
-        # Check if either field is empty
-        if not username or not password:
-            messagebox.showwarning("Warning", "Username and password cannot be empty.")
+        # Validate input before proceeding
+        if not self.validate_input(username, password):
             return
 
         # Check if the username already exists
@@ -70,7 +105,7 @@ class LoginWindow(tk.Toplevel):
         else:
             user = User(username, password)
             self.user_repo.save_user(user)
-            messagebox.showinfo("Success", "User registered successfully.")
+            messagebox.showinfo("Success", "User registered successfully, please log in to continue.")
 
     def on_close(self):
         """
