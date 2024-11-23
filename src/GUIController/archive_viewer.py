@@ -109,7 +109,6 @@ class ArchiveViewer(tk.Toplevel):
                 query += ' AND due_date <= ?'
                 params.append(self.filters['due_date'].strftime("%Y-%m-%d"))
 
-        print(f"Executing query: {query} with params: {params}")  # Debug print
         cursor.execute(query, params)
         rows = cursor.fetchall()
         conn.close()
@@ -210,7 +209,7 @@ class ArchiveViewer(tk.Toplevel):
                 selected_task.importance.value,
                 selected_task.urgency.value,
                 selected_task.fitness.value,
-                Status.OPEN.value,  # Reset status to open
+                Status.OPEN.value,
                 self.controller.current_user_id
             ))
 

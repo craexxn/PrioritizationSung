@@ -24,13 +24,13 @@ class DragDropHandler:
         """
         self.canvas = canvas
         self.task_elements = task_elements
-        self.gui_controller = gui_controller  # Store the GUIController instance
+        self.gui_controller = gui_controller
         self.db_path = db_path
         self.dragging_task_id = None
         self.start_x = None
         self.start_y = None
         self.is_dragging = False
-        self.drag_threshold = 5  # Minimum distance to start dragging
+        self.drag_threshold = 50  # Minimum distance to start dragging
 
     def start_drag(self, event, task_id):
         """
@@ -43,7 +43,6 @@ class DragDropHandler:
         self.dragging_task_id = task_id
         self.start_x = event.x
         self.start_y = event.y
-        print(f"Started dragging task ID: {task_id}")
 
     def drag_task(self, event, task_id):
         """
@@ -60,7 +59,6 @@ class DragDropHandler:
         # Update starting position for the next motion event
         self.start_x = event.x
         self.start_y = event.y
-        print(f"Dragging task ID: {task_id} to ({event.x}, {event.y})")
 
     def drop_task(self, event, task_id):
         """
@@ -75,7 +73,6 @@ class DragDropHandler:
 
         x, y = event.x, event.y
         new_priority_area = self.get_priority_from_position(x, y)
-        print(f"Dropped task ID: {task_id} at ({x}, {y}) in area: {new_priority_area}")
 
         # Update the task's priority in the database
         try:
@@ -91,17 +88,14 @@ class DragDropHandler:
 
             conn.commit()
             conn.close()
-            print(f"Task ID {task_id} updated in database with new priorities {new_priority_area}.")
 
             # Update the task in memory
             task = next((task for task in self.gui_controller.tasks if task.id == task_id), None)
             if task:
                 task.importance, task.urgency, task.fitness = new_priority_area
-                print(f"Task ID {task.id} in memory updated to new priorities {new_priority_area}.")
 
             # Refresh the Venn diagram
             self.gui_controller.update_task_venn_diagram()
-            print("Venn diagram updated after drop.")
 
         except sqlite3.Error as e:
             print(f"Error updating database for task ID {task_id}: {e}")

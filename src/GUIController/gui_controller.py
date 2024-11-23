@@ -37,19 +37,15 @@ class GUIController:
         self.root = root
         self.root.title("Sung Task Manager")
 
-        print("Initializing GUIController")
         self.current_user = None  # Stores the logged-in user's name
         self.db_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../Database/database.db'))
 
-        print("Opening LoginWindow")
         self.login_window = LoginWindow(self)
 
         # Initialize the task list and canvas mappings
         self.tasks = []  # Holds all tasks
         self.task_elements = {}  # Maps task titles to their canvas elements for drag-and-drop
 
-        # Initialize managers
-        print("Initializing managers")
         self.settings_manager = SettingsManager(db_path=self.db_path)
         self.archive_manager = ArchiveManager(db_path=self.db_path)
         self.notification_manager = NotificationManager(self.settings_manager)
@@ -68,7 +64,6 @@ class GUIController:
         self.filter_controller = FilterController(self)
 
     def create_widgets(self):
-        print("Creating widgets")  # Debug print
 
         # Main canvas for the Venn Diagram
         self.venn_canvas = Canvas(self.root, width=1024, height=1024)
@@ -146,7 +141,6 @@ class GUIController:
         Updates the Venn diagram with current tasks and initializes drag-and-drop bindings.
         Ensures tasks are correctly displayed based on their priorities without overlapping.
         """
-        print("Updating Venn Diagram...")
         self.venn_canvas.delete("task_text")
         self.low_listbox.delete(0, tk.END)
         self.task_elements.clear()  # Reset task mapping
@@ -183,7 +177,6 @@ class GUIController:
             "F": 0
         }
 
-        print(f"Reloading Venn Diagram with {len(self.tasks)} tasks")
         for task in self.tasks:
             # Determine task placement based on priorities
             if task.importance == Priority.HIGH and task.urgency == Priority.HIGH and task.fitness == Priority.HIGH:
@@ -232,9 +225,6 @@ class GUIController:
             text_id = self.venn_canvas.create_text(x, y, text=task.title, tags="task_text")
             self.task_elements[task.id] = text_id  # Map the task ID to its text element
 
-            # Debugging print
-            print(f"Task '{task.title}' (ID: {task.id}) positioned at ({x}, {y})")
-
             # Bind drag-and-drop events to the task
             self.venn_canvas.tag_bind(
                 text_id, "<Button-1>", lambda event, tid=task.id: self.drag_or_select_task(event, tid)
@@ -246,7 +236,6 @@ class GUIController:
                 text_id, "<ButtonRelease-1>", lambda event, tid=task.id: self.drag_drop_handler.drop_task(event, tid)
             )
 
-        print("Venn Diagram updated.")
 
     def load_tasks(self, filters=None):
         """
@@ -332,7 +321,6 @@ class GUIController:
         self.selected_task = {"task": selected_task, "text_id": self.task_elements[task_id]}
         self.venn_canvas.itemconfig(self.selected_task["text_id"], fill="red")  # Highlight selected task in red
 
-        print(f"Task selected: {selected_task.title}, ID: {selected_task.id}")
 
     def edit_task_from_canvas(self, task):
         """
@@ -365,19 +353,18 @@ class GUIController:
         """
         Handles the selection of a task in the LOW Priority Tasks listbox.
         """
-        selected_index = self.low_listbox.curselection()  # Korrektur: Hier wird `low_listbox` verwendet
+        selected_index = self.low_listbox.curselection()  # Get selected item index
         if not selected_index:
+            self.selected_task = None  # Clear selection if nothing is selected
             return
 
         selected_title = self.low_listbox.get(selected_index)
         selected_task = next((task for task in self.tasks if task.title == selected_title), None)
 
         if selected_task:
-            self.selected_task_index = self.tasks.index(selected_task)
-            # Clear selection in the Venn diagram (
-            self.venn_canvas.delete("task_text")
+            self.selected_task = {"task": selected_task}  # Mark the task as selected
         else:
-            self.selected_task_index = None
+            self.selected_task = None  # Clear selection if no task is found
 
         # Ensure the Venn diagram is updated and visible
         self.update_task_venn_diagram()
@@ -399,8 +386,6 @@ class GUIController:
             row = cursor.fetchone()
             conn.close()
 
-            print(f"Database row fetched: {row}")  # Debug output
-
             # Set priorities based on the user's settings or fallback to defaults
             if row:
                 default_importance = Priority[row[0].upper()] if row[0] else Priority.LOW
@@ -416,7 +401,6 @@ class GUIController:
                 f"Default values: Importance={default_importance}, Urgency={default_urgency}, Fitness={default_fitness}")
 
         except sqlite3.Error as e:
-            print(f"Database Error: {e}")  # Debug output
             messagebox.showerror("Database Error", f"Error fetching default priorities: {e}")
             default_importance = Priority.LOW
             default_urgency = Priority.LOW
@@ -608,7 +592,6 @@ class GUIController:
         """
         Opens the ArchiveViewer with filtering functionality.
         """
-        print("Opening Archive Viewer...")  # Debugging output
         archive_viewer = ArchiveViewer(self)
         archive_viewer.load_archived_tasks()
 

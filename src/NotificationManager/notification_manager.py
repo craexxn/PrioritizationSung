@@ -1,5 +1,3 @@
-# notification_manager.py
-
 from datetime import date, timedelta
 
 
