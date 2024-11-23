@@ -362,9 +362,11 @@ class GUIController:
         selected_task = next((task for task in self.tasks if task.title == selected_title), None)
 
         if selected_task:
-            self.selected_task = {"task": selected_task}  # Mark the task as selected
+            self.selected_task_index = self.tasks.index(selected_task)
+            # Clear selection in the Venn diagram (
+            self.venn_canvas.delete("task_text")
         else:
-            self.selected_task = None  # Clear selection if no task is found
+            self.selected_task_index = None
 
         # Ensure the Venn diagram is updated and visible
         self.update_task_venn_diagram()
