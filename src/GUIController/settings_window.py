@@ -50,19 +50,19 @@ class SettingsWindow(tk.Toplevel):
         tk.Label(self, text="Default Importance Priority:").pack(pady=5)
         self.default_importance_var = tk.StringVar()
         self.importance_combo = ttk.Combobox(self, textvariable=self.default_importance_var, state="readonly")
-        self.importance_combo['values'] = ['None', 'Low', 'High']
+        self.importance_combo['values'] = ['Low', 'High']  # Removed "None"
         self.importance_combo.pack(pady=5)
 
         tk.Label(self, text="Default Urgency Priority:").pack(pady=5)
         self.default_urgency_var = tk.StringVar()
         self.urgency_combo = ttk.Combobox(self, textvariable=self.default_urgency_var, state="readonly")
-        self.urgency_combo['values'] = ['None', 'Low', 'High']
+        self.urgency_combo['values'] = ['Low', 'High']  # Removed "None"
         self.urgency_combo.pack(pady=5)
 
         tk.Label(self, text="Default Fitness Priority:").pack(pady=5)
         self.default_fitness_var = tk.StringVar()
         self.fitness_combo = ttk.Combobox(self, textvariable=self.default_fitness_var, state="readonly")
-        self.fitness_combo['values'] = ['None', 'Low', 'High']
+        self.fitness_combo['values'] = ['Low', 'High']  # Removed "None"
         self.fitness_combo.pack(pady=5)
 
         # Save settings button
@@ -91,9 +91,11 @@ class SettingsWindow(tk.Toplevel):
                 self.auto_delete_var.set(bool(row[2]) if row[2] is not None else False)
                 self.auto_delete_interval_var.set(row[3] if row[3] is not None else 30)
                 self.notifications_enabled_var.set(bool(row[4]) if row[4] is not None else True)
-                self.default_importance_var.set(row[5] if row[5] else 'None')
-                self.default_urgency_var.set(row[6] if row[6] else 'None')
-                self.default_fitness_var.set(row[7] if row[7] else 'None')
+
+                # Convert "None" or empty priority values to "Low" (default)
+                self.default_importance_var.set(row[5] if row[5] in ['Low', 'High'] else 'Low')
+                self.default_urgency_var.set(row[6] if row[6] in ['Low', 'High'] else 'Low')
+                self.default_fitness_var.set(row[7] if row[7] in ['Low', 'High'] else 'Low')
             else:
                 # Insert default settings for the user if no record exists
                 cursor.execute('''
@@ -101,16 +103,16 @@ class SettingsWindow(tk.Toplevel):
                                           auto_delete_interval, notifications_enabled, 
                                           default_importance, default_urgency, default_fitness)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ''', (self.user_id, 1, 0, 0, 30, 1, 'None', 'None', 'None'))
+                ''', (self.user_id, 1, 0, 0, 30, 1, 'Low', 'Low', 'Low'))
                 conn.commit()
                 self.notification_interval_var.set(1)
                 self.auto_archive_var.set(False)
                 self.auto_delete_var.set(False)
                 self.auto_delete_interval_var.set(30)
                 self.notifications_enabled_var.set(True)
-                self.default_importance_var.set('None')
-                self.default_urgency_var.set('None')
-                self.default_fitness_var.set('None')
+                self.default_importance_var.set('Low')
+                self.default_urgency_var.set('Low')
+                self.default_fitness_var.set('Low')
 
             conn.close()
         except sqlite3.Error as e:
