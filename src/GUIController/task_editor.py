@@ -98,20 +98,22 @@ class TaskEditor(tk.Toplevel):
             messagebox.showerror("Error", "All priority levels must be selected.")
             return
 
-        # Parse due_date if provided
-        due_date = None
-        if due_date_str:
-            try:
-                due_date = datetime.strptime(due_date_str, "%Y-%m-%d").date()
-            except ValueError:
-                messagebox.showerror("Error", "Invalid due date format. Use YYYY-MM-DD.")
-                return
+        # Validate due date
+        if not due_date_str:
+            messagebox.showerror("Error", "Due date is required.")
+            return
 
-            # Check if the due date is in the past
-            today = datetime.today().date()
-            if due_date < today:
-                messagebox.showerror("Error", "The due date cannot be in the past.")
-                return
+        try:
+            due_date = datetime.strptime(due_date_str, "%Y-%m-%d").date()
+        except ValueError:
+            messagebox.showerror("Error", "Invalid due date format. Use YYYY-MM-DD.")
+            return
+
+        # Check if the due date is in the past
+        today = datetime.today().date()
+        if due_date < today:
+            messagebox.showerror("Error", "The due date cannot be in the past.")
+            return
 
         # Convert dropdown values to Priority Enum
         importance = Priority[self.importance_var.get().upper()]
@@ -129,7 +131,8 @@ class TaskEditor(tk.Toplevel):
                 SET title = ?, description = ?, due_date = ?, importance = ?, urgency = ?, fitness = ?, status = ?
                 WHERE id = ?
             ''', (
-            title, description, due_date, importance.value, urgency.value, fitness.value, status.value, self.task.id))
+                title, description, due_date, importance.value, urgency.value, fitness.value, status.value,
+                self.task.id))
         else:
             # Insert new task
             cursor.execute('''
