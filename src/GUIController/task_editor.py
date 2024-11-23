@@ -93,6 +93,12 @@ class TaskEditor(tk.Toplevel):
         if not title:
             messagebox.showerror("Error", "Title is required.")
             return
+        if len(title) > 25:
+            messagebox.showerror("Error", "Title cannot exceed 25 characters.")
+            return
+        if len(description) > 250:
+            messagebox.showerror("Error", "Description cannot exceed 250 characters.")
+            return
 
         if self.importance_var.get() == "Select Priority" or self.urgency_var.get() == "Select Priority" or self.fitness_var.get() == "Select Priority":
             messagebox.showerror("Error", "All priority levels must be selected.")
