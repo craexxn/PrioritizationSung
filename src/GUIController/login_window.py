@@ -64,7 +64,7 @@ class LoginWindow(tk.Toplevel):
             return False
 
         # Validate password: must be at least 8 characters long
-        if len(password) < 2:
+        if len(password) < 3:
             messagebox.showwarning(
                 "Warning",
                 "Password must be at least 3 characters long."
