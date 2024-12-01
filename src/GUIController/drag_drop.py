@@ -25,7 +25,16 @@ class DragDropHandler:
         self.canvas = canvas
         self.task_elements = task_elements
         self.gui_controller = gui_controller
-        self.db_path = db_path
+
+        # Dynamically determine the database path if not provided
+        if db_path is None:
+            if getattr(sys, 'frozen', False):  # Running as an executable
+                self.db_path = os.path.join(os.path.dirname(sys.executable), "database.db")
+            else:  # Running as a script
+                self.db_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../Database/database.db'))
+        else:
+            self.db_path = db_path
+
         self.dragging_task_id = None
         self.start_x = None
         self.start_y = None

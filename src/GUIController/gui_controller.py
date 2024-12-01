@@ -38,7 +38,13 @@ class GUIController:
         self.root.title("Sung Task Manager")
 
         self.current_user = None  # Stores the logged-in user's name
-        self.db_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../Database/database.db'))
+
+        if getattr(sys, 'frozen', False):  # Executable mode
+            db_path = os.path.join(os.path.dirname(sys.executable), "database.db")
+        else:  # Script mode
+            db_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../Database/database.db'))
+
+        self.db_path = db_path
 
         self.login_window = LoginWindow(self)
 

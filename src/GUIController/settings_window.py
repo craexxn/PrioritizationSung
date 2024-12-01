@@ -11,7 +11,13 @@ class SettingsWindow(tk.Toplevel):
     def __init__(self, controller):
         super().__init__(controller.root)
         self.controller = controller
-        self.db_path = controller.db_path  # Path to the database
+
+        if getattr(sys, 'frozen', False):  # Executable mode
+            db_path = os.path.join(os.path.dirname(sys.executable), "database.db")
+        else:  # Script mode
+            db_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../Database/database.db'))
+
+        self.db_path = db_path
         self.user_id = controller.current_user_id  # Get the currently logged-in user
         self.title("Settings")
         self.geometry("300x500")

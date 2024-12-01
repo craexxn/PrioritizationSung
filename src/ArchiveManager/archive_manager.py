@@ -21,7 +21,12 @@ class ArchiveManager:
 
         :param db_path: Path to the SQLite database file.
         """
-        self.db_path = db_path
+        # Dynamically determine the database path
+        if getattr(sys, 'frozen', False):  # Running as an executable
+            self.db_path = os.path.join(os.path.dirname(sys.executable), "database.db")
+        else:  # Running as a script
+            self.db_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../Database/database.db'))
+
         self._create_archived_tasks_table()
 
     def _create_archived_tasks_table(self):

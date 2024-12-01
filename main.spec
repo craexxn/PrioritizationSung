@@ -3,9 +3,9 @@ import os
 
 block_cipher = None
 
-# Manuelle Hinzufügung von Daten und Modulen
+
 datas = [
-    ('src/Database/database.db', 'Database'),
+    ('src/Database/database.db', '.'),
     ('src/ArchiveManager/archive_manager.py', 'ArchiveManager'),
     ('src/GUIController/gui_controller.py', 'GUIController'),
     ('src/GUIController/archive_viewer.py', 'GUIController'),
@@ -35,8 +35,8 @@ hidden_imports = [
 ]
 
 a = Analysis(
-    ['src/main.py'],  # Hauptskript
-    pathex=['src'],  # Basispfad
+    ['src/main.py'],
+    pathex=['src'],
     binaries=binaries,
     datas=datas,
     hiddenimports=hidden_imports,

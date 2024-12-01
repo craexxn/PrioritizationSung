@@ -7,8 +7,16 @@ class SettingsManager:
     SettingsManager manages the user-specific settings for the application.
     """
 
-    def __init__(self, db_path='database.db'):
-        self.db_path = db_path
+    def __init__(self, db_path=None):
+        # Dynamically determine the database path if not provided
+        if db_path is None:
+            if getattr(sys, 'frozen', False):  # Running as an executable
+                self.db_path = os.path.join(os.path.dirname(sys.executable), "database.db")
+            else:  # Running as a script
+                self.db_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../Database/database.db'))
+        else:
+            self.db_path = db_path
+
         self._initialize_settings_table()
 
     def _initialize_settings_table(self):

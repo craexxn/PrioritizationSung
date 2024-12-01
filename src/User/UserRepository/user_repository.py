@@ -14,9 +14,13 @@ class UserRepository:
     """
     def __init__(self, db_path=None):
         if db_path is None:
-            # Construct the absolute path to database.db
-            db_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../Database/database.db'))
-        self.db_path = db_path
+            # Dynamically determine the database path based on the execution environment
+            if getattr(sys, 'frozen', False):  # Running as an executable
+                self.db_path = os.path.join(os.path.dirname(sys.executable), "database.db")
+            else:  # Running as a script
+                self.db_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../Database/database.db'))
+        else:
+            self.db_path = db_path
 
     def save_user(self, user: User):
         """
