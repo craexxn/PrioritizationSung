@@ -480,12 +480,8 @@ class GUIController:
         self.update_task_listbox()
 
     def mark_task_completed(self):
-        """
-        Marks the selected task as completed. If auto-archive is enabled, the task will be archived immediately.
-        """
         task_to_mark = None
 
-        # Determine which task is selected
         if self.selected_task:
             task_to_mark = self.selected_task["task"]
         elif self.low_listbox.curselection():
@@ -497,11 +493,9 @@ class GUIController:
             messagebox.showwarning("No Selection", "Please select a task to mark as completed.")
             return
 
-        # Update the task's status
         task_to_mark.status = Status.COMPLETED
 
         try:
-            # Update the status in the database
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
             cursor.execute('''
@@ -512,17 +506,21 @@ class GUIController:
             conn.commit()
             conn.close()
 
-            # Check if auto-archive is enabled
-            if self.settings_manager.get_settings().get("auto_archive", False):
-                self.archive_selected_task(task_to_archive=task_to_mark)  # Archive the task directly
+            # Debug: Check if the user ID and auto_archive are correct
+            settings = self.settings_manager.get_settings(self.current_user_id)
+            print(f"[DEBUG] User ID: {self.current_user_id}, Settings: {settings}")
+
+            if settings.get("auto_archive", False):
+                print("[DEBUG] Auto-archiving is enabled.")
+                self.archive_selected_task(task_to_archive=task_to_mark)
             else:
+                print("[DEBUG] Auto-archiving is disabled.")
                 messagebox.showinfo("Task Completed", f"Task '{task_to_mark.title}' has been marked as completed.")
 
         except sqlite3.Error as e:
             messagebox.showerror("Database Error", f"Error marking task as completed: {e}")
             return
 
-        # Refresh the task list
         self.update_task_listbox()
 
     def archive_selected_task(self, task_to_archive=None):

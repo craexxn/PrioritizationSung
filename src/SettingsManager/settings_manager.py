@@ -68,17 +68,30 @@ class SettingsManager:
         conn.commit()
         conn.close()
 
-    def get_settings(self):
+    def get_settings(self, user_id=None):
         """
-        Retrieves the current user settings from the database.
+        Retrieves settings for a specific user from the database.
+        If user_id is not provided, uses default settings.
 
-        :return: A dictionary with the current settings.
+        :param user_id: The ID of the user to fetch settings for.
+        :return: A dictionary of settings.
         """
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
 
-        cursor.execute(
-            'SELECT notification_interval, auto_archive, auto_delete, notifications_enabled, default_priorities FROM settings WHERE id = 1')
+        if user_id:
+            # Fetch settings for the specified user
+            cursor.execute('''
+                SELECT notification_interval, auto_archive, auto_delete, notifications_enabled, default_importance, default_urgency, default_fitness
+                FROM settings WHERE user_id = ?
+            ''', (user_id,))
+        else:
+            # Fetch settings for a default user (or use a fallback)
+            cursor.execute('''
+                SELECT notification_interval, auto_archive, auto_delete, notifications_enabled, default_importance, default_urgency, default_fitness
+                FROM settings WHERE user_id = 1
+            ''')  # Assuming 1 is the default user ID
+
         row = cursor.fetchone()
         conn.close()
 
@@ -88,16 +101,20 @@ class SettingsManager:
                 "auto_archive": bool(row[1]),
                 "auto_delete": bool(row[2]),
                 "notifications_enabled": bool(row[3]),
-                "default_priorities": json.loads(row[4])  # Convert JSON back to dict
+                "default_importance": row[4],
+                "default_urgency": row[5],
+                "default_fitness": row[6],
             }
         else:
-            # Return default settings if no settings exist
+            # Fallback to default settings if no settings exist
             return {
                 "notification_interval": 1,
-                "auto_archive": True,
+                "auto_archive": False,
                 "auto_delete": False,
                 "notifications_enabled": True,
-                "default_priorities": {"importance": "LOW", "urgency": "LOW", "fitness": "LOW"}
+                "default_importance": "Low",
+                "default_urgency": "Low",
+                "default_fitness": "Low",
             }
 
     def update_default_priorities(self, priorities: dict):
