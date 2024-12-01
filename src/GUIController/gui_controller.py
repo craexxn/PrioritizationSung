@@ -362,10 +362,10 @@ class GUIController:
         selected_task = next((task for task in self.tasks if task.title == selected_title), None)
 
         if selected_task:
+            self.selected_task = {"task": selected_task, "text_id": None}  # No text_id for listbox items
             self.selected_task_index = self.tasks.index(selected_task)
-            # Clear selection in the Venn diagram (
-            self.venn_canvas.delete("task_text")
         else:
+            self.selected_task = None
             self.selected_task_index = None
 
         # Ensure the Venn diagram is updated and visible
@@ -465,7 +465,8 @@ class GUIController:
             # Remove the task from the UI
             self.tasks.remove(task_to_delete)
             if self.selected_task:
-                self.venn_canvas.delete(self.selected_task["text_id"])  # Remove from Venn diagram
+                if self.selected_task["text_id"]:
+                    self.venn_canvas.delete(self.selected_task["text_id"])  # Remove from Venn diagram
                 self.selected_task = None  # Clear selection
             elif self.low_listbox.curselection():
                 self.low_listbox.delete(selected_index)  # Remove from "LOW" listbox

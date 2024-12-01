@@ -8,7 +8,7 @@ import re
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../User')))
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../User/UserRepository')))
 
-from user_repository import UserRepository
+from User.UserRepository.user_repository import UserRepository
 from user import User
 
 
